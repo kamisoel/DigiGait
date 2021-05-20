@@ -19,6 +19,8 @@ class LPN_Estimator2D(Estimator2D):
     CFG_FILE = 'model/configs/lpn50_256x192_gd256x2_gc.yaml'
     CKPT_FILE = 'model/checkpoints/lpn_50_256x192.pth'
 
+    BATCH_SIZE = 64
+
     def __init__(self, device='cpu'):
         self.device = device
         # download pretrained weights if necessary
@@ -38,7 +40,6 @@ class LPN_Estimator2D(Estimator2D):
         except ImportError as error:
             print('GoogleDriveDownloader has to be installed for automatic download' \
                 'You can download the weights manually under: https://drive.google.com/file/d/1dldLwjOacXV_uGkbxfEIPPJEK_2A-Snp/view?usp=sharing')
-
 
 
     def create_lpn_model(self, cfg_file, ckp_file):
@@ -62,20 +63,20 @@ class LPN_Estimator2D(Estimator2D):
         return pose_model, lpn.cfg
 
 
-    def estimate(self, video_file, bboxes=None):
+    def default_transform(self):
+        return Compose([
+            Resize((256, 192)),
+            Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        ])
+
+    def estimate(self, video_file, bboxes=None, video_range=None):
 
         # Convert bboxes to correct aspect ratio
         bboxes = np.apply_along_axis(adjust_aspect_ratio, 1, bboxes, aspect_ratio=3/4)
 
-        # Create Preprocessing Pipeline for Video Frame
-        transform = Compose([
-            Resize((256, 192)),
-            Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-        ])
-        # Create Dataset and DataLoader
-        BATCH_SIZE = 64
-        dataset = VideoDataset(video_file, bboxes, transform = transform)
-        dl = DataLoader(dataset, batch_size=BATCH_SIZE)
+        video_ds = VideoDataset(video_file, bboxes, video_range,
+                                transform=self.default_transform())
+        dl = DataLoader(video_ds, batch_size=self.BATCH_SIZE)
 
         # Infer poses using the model
         with torch.no_grad():
@@ -92,9 +93,9 @@ class LPN_Estimator2D(Estimator2D):
             pose_2d = np.vstack(pose_2d)
 
         # create VideoPose3D-compatible metadata and keypoint structure
-        video_name = Path(video_file).stem
+        video_name = Path(video_ds.path).stem
         metadata = suggest_metadata('coco')
-        video_meta = {'w': dataset.size[0], 'h': dataset.size[1], 'fps': dataset.fps}
+        video_meta = {'w': video_ds.size[0], 'h': video_ds.size[1], 'fps': video_ds.fps}
         metadata['video_metadata'] = {video_name: video_meta}
         keypoints = {video_name: {'custom': [pose_2d]}}
 

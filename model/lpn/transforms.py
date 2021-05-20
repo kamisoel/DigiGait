@@ -85,6 +85,24 @@ def get_affine_transform(
     return trans
 
 
+# loading cv2 just for affine transformations is a bit of an overkill..
+def getAffineTransform(X, Y):
+  n = X.shape[0]
+
+  # Pad the data with ones, so that our transformation can do translations too
+  X = np.hstack([X, np.ones((n, 1))])
+  Y = np.hstack([Y, np.ones((n, 1))])
+
+  # Solve the least squares problem X * M = Y
+  # to find our transformation matrix M
+  M, res, rank, s = np.linalg.lstsq(Y, X, rcond=None)
+
+  # set really small values to zero
+  M[np.abs(M) < 1e-10] = 0
+
+  return M[:,:-1].T
+
+
 def affine_transform(pt, t):
     new_pt = np.array([pt[0], pt[1], 1.]).T
     new_pt = np.dot(t, new_pt)
@@ -106,12 +124,12 @@ def get_dir(src_point, rot_rad):
     return src_result
 
 
-def crop(img, center, scale, output_size, rot=0):
-    trans = get_affine_transform(center, scale, rot, output_size)
-
-    dst_img = cv2.warpAffine(
-        img, trans, (int(output_size[0]), int(output_size[1])),
-        flags=cv2.INTER_LINEAR
-    )
-
-    return dst_img
+#def crop(img, center, scale, output_size, rot=0):
+#    trans = get_affine_transform(center, scale, rot, output_size)
+#
+#    dst_img = cv2.warpAffine(
+#        img, trans, (int(output_size[0]), int(output_size[1])),
+#        flags=cv2.INTER_LINEAR
+#    )
+#
+#    return dst_img

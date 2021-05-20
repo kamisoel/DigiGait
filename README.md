@@ -1,7 +1,6 @@
 # Gait-Analyzer
 
-[! https://img.shields.io/github/license/kamisoel/gait-analyzer] [! https://img.shields.io/badge/Made%20at-Starschema-red]
-A dn interactive dashboard to easily use 3D Human Pose Estimation for gait analysis
+An interactive dashboard to easily use 3D Human Pose Estimation for gait analysis
 
 
 ## Running locally

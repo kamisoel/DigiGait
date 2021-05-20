@@ -6,7 +6,7 @@ from torch.utils.data import Dataset
 from data.bbox_utils import xywh2xyxy 
 
 class VideoDataset(Dataset):
-    def __init__(self, path, bboxes=None, transform=None):
+    def __init__(self, path, bboxes=None, video_range=None, transform=None):
         self.path = path
         self.bboxes = bboxes
         self.transform = transform
@@ -17,7 +17,14 @@ class VideoDataset(Dataset):
         reader = imageio.get_reader(self.path, 'ffmpeg')
         self.size = reader._meta['size']
         self.fps = reader._meta['fps']
-        self._length = reader.get_length()
+
+        if video_range is None:
+            self._start = 0
+            self._length = reader.count_frames()
+        else:
+            start, end = video_range
+            self._start = int(start * self.fps)
+            self._length = int((end - start) * self.fps)
 
     def __getitem__(self, ix):
         # Below is a workaround to allow using `VideoDataset` with
@@ -29,6 +36,8 @@ class VideoDataset(Dataset):
         # freshly-initialized `VideoDataset` and then, thanks to the if
         # below, `self._reader` gets initialized independently in each
         # worker thread.
+
+        ix = self._start + ix
 
         if self._reader is None:
             self._reader = imageio.get_reader(self.path, 'ffmpeg')

@@ -1,0 +1,28 @@
+{
+    "name": "Gait Analyzer",
+    "description": "Use 3D Human Pose Estimation to analyze gait",
+    "keywords": [
+      "Flask", "Dash", "Plotly", "Gait", "Human Pose Estimation"
+    ],
+    "repository": "https://github.com/kamisoel/gait-analyzer",
+    "success_url": "/",
+    "env": {
+      "FLASK_APP": {
+        "description": "Name of entrypoint app file in the root directory.",
+        "value": "app"
+      }
+    },
+    "formation": {
+      "web": {
+        "quantity": 1,
+        "size": "free"
+      }
+    },
+    "addons": [
+    ],
+    "buildpacks": [
+      {
+        "url": "heroku/python"
+      }
+    ]
+  }

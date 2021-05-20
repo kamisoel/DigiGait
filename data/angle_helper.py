@@ -30,7 +30,7 @@ def calc_common_angles(pose_3d):
     angles['RightKnee'] = get_joint_angles(pose_3d, [RHip, RKnee, RAnkle]) # y
     angles['LeftKnee'] = get_joint_angles(pose_3d, [LHip, LKnee, LAnkle]) # y
 
-    angles['RightHip'] = get_joint_angles(pose_3d, [Spine, MHip, RKnee, RHip])
-    angles['LeftHip'] = get_joint_angles(pose_3d, [Spine, MHip, LKnee, LHip])
+    #angles['RightHip'] = get_joint_angles(pose_3d, [Spine, MHip, RKnee, RHip])
+    #angles['LeftHip'] = get_joint_angles(pose_3d, [Spine, MHip, LKnee, LHip])
     return angles
 
