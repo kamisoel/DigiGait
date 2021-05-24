@@ -1,35 +1,36 @@
-
-import sys
 import torch
 import imageio
 import numpy as np
 from time import time
 
-import argparse 
+import argparse
 
-def get_bboxes(model, video_in):
+from data.video import Video
+
+def get_bboxes(model, video, pred_every=1):
     # read video frame by frame
     bboxes = []
-    
-    with imageio.get_reader(video_in, 'ffmpeg') as video:
-        num_frames = video.get_meta_data()['nframes']
 
-        t = time()
-        for frame in video.iter_data():
-            results = model(frame, size=320).pandas().xyxy[0]
-            box = results.loc[results['confidence'].idxmax()].to_numpy()[:4].astype(int)
-            bboxes.append(np.hstack([box[:2], box[2:]-box[:2]])) # (x,y,w,h)
+    num_frames = 0
+    t = time()
 
-        print(f"{num_frames} frames processed in {(time()-t):.3f}s")
+    for i, frame in enumerate(video):
+        if i % pred_every != 0:
+            bboxes.append(np.full(4, np.nan))
+            continue
+        results = model(frame, size=320).pandas().xyxy[0]
+        box = results.loc[results['confidence'].idxmax()].to_numpy()[:4].astype(int)
+        bboxes.append(np.hstack([box[:2], box[2:]-box[:2]])) # (x,y,w,h)
+        num_frames += 1
+
+    print(f"{num_frames} frames processed in {(time()-t):.3f}s")
     return bboxes
 
-def render_with_bboxes(video_in, bboxes, video_out):
-    with imageio.get_reader(video_in, 'ffmpeg') as video:
-        fps = video.get_meta_data()['fps']
-        with imageio.get_writer(video_out, fps=fps) as writer:
-            for i, frame in enumerate(video.iter_data()):
-                draw_box(frame, bboxes[i])
-                writer.append_data(frame)
+def render_with_bboxes(video, bboxes, video_out):
+    with imageio.get_writer(video_out, fps=video.fps) as writer:
+        for i, frame in enumerate(video):
+            draw_box(frame, bboxes[i])
+            writer.append_data(frame)
 
 def draw_box(img, box, s=5, c=[120,0,0]):
     x1, y1, w, h = box
@@ -66,24 +67,24 @@ def interpolate_outliers(A):
 
     return np.apply_along_axis(interp_along_axis, arr=A, axis=0)
 
-def detect_person(model_arch, input, output="", video_out=""):
+def detect_person(model_arch, video, bb_out="", video_out="", pred_every=1):
     # Create yolo model
     model = torch.hub.load('ultralytics/yolov5', model_arch, pretrained=True)
     model.classes = [0] # detect persons only 
     model.eval()
 
-    bboxes = get_bboxes(model, input)
-    num_outliers = np.sum(~np.isfinite(bboxes) & is_outlier(bboxes))
-    print(f"Interpolating {num_outliers} frames...")
+    bboxes = get_bboxes(model, video, pred_every)
+    num_outliers = np.sum((~np.isfinite(bboxes) | is_outlier(bboxes)))
+    print(f"Interpolating {num_outliers} parameters...")
     bboxes = interpolate_outliers(bboxes)
     if video_out:
         print(f"Save Video with added bboxes...")
-        render_with_bboxes(input, bboxes, video_out)
+        render_with_bboxes(video, bboxes, video_out)
 
     print("Done.")
-    if output:
+    if bb_out:
         # save using numpy
-        np.save(output, np.vstack(bboxes))
+        np.save(bb_out, np.vstack(bboxes))
 
     return bboxes
 
@@ -107,6 +108,22 @@ if __name__ == '__main__':
                         help='if given, save video with added bboxes to',
                         type=str,
                         default="")
+    parser.add_argument('-s', '--start_time',
+                        help='start the video at spefified time in seconds',
+                        type=float,
+                        default=0)
+    parser.add_argument('-l', '--length',
+                        help='take only the subclip of specified length starting with <start_time>',
+                        type=float,
+                        default=-1)
     args = parser.parse_args()
 
-    detect_person(args.model, args.input, args.output, args.video_out)
+    with Video(args.input) as video:
+        start_frame = round(args.start_time * video.fps)
+        if args.length > 0 and args.start_time + args.length < video.duration:
+            end_frame = start_frame + round(args.length * video.fps)
+            subclip = video[start_frame:end_frame]
+        else:
+            subclip = video[args.start_frame:]
+
+        detect_person(args.model, subclip, args.output, args.video_out)

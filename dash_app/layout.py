@@ -120,6 +120,7 @@ def video_settings():
                                color='primary', disabled=True),
                         href="#pose_card", external_link=True
                     ),
+                    html.Pre(id='console')
                 ], className="mb-4",)
             ]),
         ],
@@ -132,12 +133,14 @@ def video_preview():
         children=[
             dbc.Row([
                 dbc.Col(
-                    id='video_container',
-                    children=[
-                        get_video_player(
-                            'video_player',
-                            get_asset('demo.mp4')),
-                    ],
+                    dcc.Loading(
+                        id='video_container',
+                        children=[
+                            get_video_player(
+                                'video_player',
+                                get_asset('demo.mp4')),
+                        ],
+                    ),
                 )],
             )
         ]
@@ -152,7 +155,6 @@ def pose_card():
         children=[
             dcc.Loading(
                 id="pose-loading",
-                type="circle",
                 children=dbc.Row([
                     dbc.Col(
                         # 3d viewer
@@ -189,7 +191,8 @@ def init_data():
 demo_pose, demo_angles = init_data()
 
 layout = html.Div([
-    dcc.Store(id='session', storage_type='session'),
+    #dcc.Store(id='session', storage_type='session'),
+    dcc.Store(id='video_data'),
     create_header(),
     dbc.Container([
         dbc.Row([

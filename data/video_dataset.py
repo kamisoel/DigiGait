@@ -1,30 +1,15 @@
 import numpy as np
-import imageio
+import pims
 import torch
 from torch.utils.data import Dataset
 
 from data.bbox_utils import xywh2xyxy 
 
 class VideoDataset(Dataset):
-    def __init__(self, path, bboxes=None, video_range=None, transform=None):
-        self.path = path
+    def __init__(self, video, bboxes=None, transform=None):
+        self.video = video
         self.bboxes = bboxes
         self.transform = transform
-
-        # explained in __getitem__
-        self._reader = None
-
-        reader = imageio.get_reader(self.path, 'ffmpeg')
-        self.size = reader._meta['size']
-        self.fps = reader._meta['fps']
-
-        if video_range is None:
-            self._start = 0
-            self._length = reader.count_frames()
-        else:
-            start, end = video_range
-            self._start = int(start * self.fps)
-            self._length = int((end - start) * self.fps)
 
     def __getitem__(self, ix):
         # Below is a workaround to allow using `VideoDataset` with
@@ -37,13 +22,8 @@ class VideoDataset(Dataset):
         # below, `self._reader` gets initialized independently in each
         # worker thread.
 
-        ix = self._start + ix
-
-        if self._reader is None:
-            self._reader = imageio.get_reader(self.path, 'ffmpeg')
-
         # this is a numpy ndarray in [h, w, channel] format
-        frame = self._reader.get_data(ix)
+        frame = self.video[ix]
 
         # cut out the frame part captured by the bbox
         if self.bboxes is not None:
@@ -66,4 +46,4 @@ class VideoDataset(Dataset):
             return frame, self.bboxes[ix]
 
     def __len__(self):
-        return self._length
+        return len(self.video)

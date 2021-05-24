@@ -67,7 +67,7 @@ def create_skeleton_fig(pose_3d, skeleton=None, joints=None, fps=25, height=500)
             ],
             "label": frame,
             "method": "animate"}
-        for frame in range(0, len(pose_3d), fps)]
+        for frame in range(0, len(pose_3d)+1, fps)]
     }
 
     layout=go.Layout(

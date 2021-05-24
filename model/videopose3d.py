@@ -33,7 +33,9 @@ class VideoPose3D (Estimator3D):
         weight_url = "https://dl.fbaipublicfiles.com/video-pose-3d/pretrained_h36m_detectron_coco.bin"
         try:
             url_request = request.urlopen(weight_url)
-            Path(self.CKPT_FILE).write_bytes(url_request.read())
+            path = Path(self.CKPT_FILE)
+            path.parent.mkdir(exist_ok=True)
+            path.write_bytes(url_request.read())
         except URLError:
             print("Could not download weight file. Please check your internet \
                 connection and proxy settings")

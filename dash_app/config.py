@@ -5,4 +5,3 @@ class Config:
 	UPLOAD_ROOT = ROOT_PATH + '/uploads'
 	ASSETS_ROOT = 'assets'
 	DEMO_DATA = 'dash_app/assets'
-	LIB_PATH = 'lib'
