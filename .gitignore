@@ -1,6 +1,13 @@
 .DS_Store
-model/checkpoints/*
+
+# no flask-cache
 cache/*
+
+# no model checkpoints
+model/checkpoints/*
+*.pt
+*.bin
+*.pth
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
