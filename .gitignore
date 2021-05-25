@@ -1,5 +1,6 @@
 .DS_Store
 model/checkpoints/*
+cache/*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
