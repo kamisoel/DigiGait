@@ -11,6 +11,7 @@ from model.estimator_2d import Estimator2D
 from data.video_dataset import VideoDataset
 from data.bbox_utils import xywh2cs, adjust_aspect_ratio
 from data.data_utils import suggest_metadata
+from data.person_detection import detect_person
 
 class LPN_Estimator2D(Estimator2D):
     """2D human pose estimator using lpn-pytorch (https://github.com/zhang943/lpn-pytorch)"""
@@ -69,7 +70,9 @@ class LPN_Estimator2D(Estimator2D):
             Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         ])
 
-    def estimate(self, video, bboxes, video_range=None):
+    def estimate(self, video, bboxes=None, video_range=None):
+        if bboxes is None:
+            bboxes = detect_person('yolov5s', video, pred_every=2)
 
         # Convert bboxes to correct aspect ratio
         bboxes = np.apply_along_axis(adjust_aspect_ratio, 1, bboxes, aspect_ratio=3/4)
