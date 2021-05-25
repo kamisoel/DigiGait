@@ -44,10 +44,13 @@ def register_dashapps(server):
 
 def register_extensions(server):
     #from flask_cacheify import init_cacheify
-    cache.init_app(server, config={'CACHE_TYPE': 'FileSystemCache', 
-                                    'CACHE_DEFAULT_TIMEOUT': 3600, 
-                                    'CACHE_DIR': 'cache',
-                                    'CACHE_THRESHOLD': 10})
-    #cache.init_app(server, config={'CACHE_TYPE': 'RedisCache', 'CACHE_DEFAULT_TIMEOUT': 3600})
+    if server.debug:
+        cache.init_app(server, config={'CACHE_TYPE': 'FileSystemCache', 
+                                        'CACHE_DEFAULT_TIMEOUT': 3600, 
+                                        'CACHE_DIR': 'cache',
+                                        'CACHE_THRESHOLD': 10})
+    else:
+        cache.init_app(server, config={'CACHE_TYPE': 'RedisCache', 
+                                       'CACHE_DEFAULT_TIMEOUT': 3600})
 
 
