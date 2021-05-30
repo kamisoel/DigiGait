@@ -8,8 +8,6 @@ import numpy as np
 
 from dash_app.config import Config
 from data.person_detection import detect_person
-from model.lpn_estimator_2d import LPN_Estimator2D
-from model.mediapipe_estimator import MediaPipe_Estimator2D
 from model.videopose3d import VideoPose3D
 from data.video import Video
 from data.video_dataset import VideoDataset
@@ -69,9 +67,11 @@ def run_estimation(video_path, video_range=None, pipeline='Medipipe + VideoPose3
 		video = video[start:end] if video_range is not None else video
 
 		if pipeline == 'LPN + VideoPose3D':
+			from model.lpn_estimator_2d import LPN_Estimator2D
 			estimator_2d = LPN_Estimator2D()
 			estimator_3d = VideoPose3D()
 		elif pipeline == 'Medipipe + VideoPose3D':
+			from model.mediapipe_estimator import MediaPipe_Estimator2D
 			estimator_2d = Medipipe_Estimator2D()
 			estimator_3d = VideoPose3D(openpose=True)
 
