@@ -66,7 +66,7 @@ def register_callbacks(app):
                   Trigger('analyze_btn', 'n_clicks'),
                   State('video_data', 'data'),
                   State('video_range', 'value'),
-                  State('estimtor_choice', 'label'),
+                  State('estimator_choice', 'label'),
                   )
     def analyze_clicked(video_content, slider_value, pipeline):
         #upload_dir = session_data['upload_dir']

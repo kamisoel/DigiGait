@@ -60,7 +60,7 @@ def run_estimation_file(video_name='video.mp4', bbox_name='bboxes.npy',
 	return run_estimation(video_file, bboxes, video_range)
 
 
-def run_estimation(video_path, video_range=None, pipeline='Medipipe + VideoPose3D'):
+def run_estimation(video_path, video_range=None, pipeline='Mediapipe + VideoPose3D'):
 	with Video(video_path) as video:
 
 		start, end = map(lambda x: round(x*video.fps), video_range)
@@ -70,7 +70,7 @@ def run_estimation(video_path, video_range=None, pipeline='Medipipe + VideoPose3
 			from model.lpn_estimator_2d import LPN_Estimator2D
 			estimator_2d = LPN_Estimator2D()
 			estimator_3d = VideoPose3D()
-		elif pipeline == 'Medipipe + VideoPose3D':
+		elif pipeline == 'MediaPipe + VideoPose3D':
 			from model.mediapipe_estimator import MediaPipe_Estimator2D
 			estimator_2d = Medipipe_Estimator2D()
 			estimator_3d = VideoPose3D(openpose=True)
