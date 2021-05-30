@@ -66,13 +66,12 @@ def register_callbacks(app):
                   Trigger('analyze_btn', 'n_clicks'),
                   State('video_data', 'data'),
                   State('video_range', 'value'),
-                  State('video_uploader', 'filename'),
+                  State('estimtor_choice', 'label'),
                   )
-    def analyze_clicked(video_content, slider_value, videoname):
+    def analyze_clicked(video_content, slider_value, pipeline):
         #upload_dir = session_data['upload_dir']
-        bboxes = None
         video_path = utils.memory_file(video_content)
-        pose_3d, knee_angles = utils.run_estimation(video_path, bboxes, slider_value)
+        pose_3d, knee_angles = utils.run_estimation(video_path, slider_value, pipeline)
         skel_fig = figures.create_skeleton_fig(pose_3d)
         ang_fig = figures.create_angle_figure(knee_angles)
         return skel_fig, ang_fig

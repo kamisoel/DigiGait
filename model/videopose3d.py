@@ -14,22 +14,36 @@ from common.model import TemporalModel
 from model.estimator_3d import Estimator3D
 
 class VideoPose3D (Estimator3D):
-    """3D human pose estimator usign VideoPose3D"""
+    """3D human pose estimator using VideoPose3D"""
 
     CFG_FILE = "model/configs/videopose.yaml"
-    CKPT_FILE = "model/checkpoints/pretrained_h36m_detectron_coco.bin"
+    CFG_FILE_OP = "model/configs/videopose_op.yaml"
 
-    def __init__(self):
-        if not Path(self.CKPT_FILE).exists():
-            self.download_weights()
+    CKPT_FILE = 'model/checkpoints/pretrained_h36m_detectron_coco.bin'
+    CKPT_FILE_OP = 'model/checkpoints/pretrained_video2bvh.pth'
 
-        with Path(self.CFG_FILE).open("r") as ymlfile:
-            cfg = yaml.load(ymlfile, Loader=yaml.SafeLoader)
 
-        self.model = self.create_model(cfg, self.CKPT_FILE)
+    def __init__(self, openpose=False):
+        if openpose:
+            if not Path(self.CKPT_FILE_OP).exists():
+                self.download_openpose_weights()
+            ckpt = self.CKPT_FILE_OP
+
+            with Path(self.CFG_FILE_OP).open("r") as ymlfile:
+                cfg = yaml.load(ymlfile, Loader=yaml.SafeLoader)
+
+        else:
+            if not Path(self.CKPT_FILE).exists():
+                self.download_weights()
+            ckpt = self.CKPT_FILE
+
+            with Path(self.CFG_FILE).open("r") as ymlfile:
+                cfg = yaml.load(ymlfile, Loader=yaml.SafeLoader)
+        
+        self.model = self.create_model(cfg, ckpt)
         self.causal = cfg['MODEL']['causal']
 
-    def download_weights(self):
+    def download_original_weights(self):
         weight_url = "https://dl.fbaipublicfiles.com/video-pose-3d/pretrained_h36m_detectron_coco.bin"
         try:
             url_request = request.urlopen(weight_url)
@@ -39,6 +53,15 @@ class VideoPose3D (Estimator3D):
         except URLError:
             print("Could not download weight file. Please check your internet \
                 connection and proxy settings")
+
+    def download_openpose_weights(self):
+        openpose_weights_gid = '1lfTWNqnqIvsf2h959Ole7t8-j86fO1xU',
+        try:
+            from google_drive_downloader import GoogleDriveDownloader as gdd
+            gdd.download_file_from_google_drive(openpose_weights_gid, self.CKPT_FILE_OP)
+        except ImportError as error:
+            print('GoogleDriveDownloader has to be installed for automatic download' \
+                'You can download the weights manually under: https://drive.google.com/file/d/1lfTWNqnqIvsf2h959Ole7t8/view?usp=sharing')
 
     def post_process(self, pose_3d):
         #transform to world coordinates

@@ -9,6 +9,7 @@ import numpy as np
 from dash_app.config import Config
 from data.person_detection import detect_person
 from model.lpn_estimator_2d import LPN_Estimator2D
+from model.mediapipe_estimator import MediaPipe_Estimator2D
 from model.videopose3d import VideoPose3D
 from data.video import Video
 from data.video_dataset import VideoDataset
@@ -61,19 +62,20 @@ def run_estimation_file(video_name='video.mp4', bbox_name='bboxes.npy',
 	return run_estimation(video_file, bboxes, video_range)
 
 
-def run_estimation(video_path, bboxes=None, video_range=None):
+def run_estimation(video_path, video_range=None, pipeline='Medipipe + VideoPose3D'):
 	with Video(video_path) as video:
 
 		start, end = map(lambda x: round(x*video.fps), video_range)
 		video = video[start:end] if video_range is not None else video
 
-		if bboxes is None:
-		    bboxes = detect_person('yolov5s', video, pred_every=2)
+		if pipeline == 'LPN + VideoPose3D':
+			estimator_2d = LPN_Estimator2D()
+			estimator_3d = VideoPose3D()
+		elif pipeline == 'Medipipe + VideoPose3D':
+			estimator_2d = Medipipe_Estimator2D()
+			estimator_3d = VideoPose3D(openpose=True)
 
-		estimator_2d = LPN_Estimator2D()
-		keypoints, meta = estimator_2d.estimate(video, bboxes)
-
-		estimator_3d = VideoPose3D()
+		keypoints, meta = estimator_2d.estimate(video)
 		pose_3d = estimator_3d.estimate(keypoints, meta)
 		pose_3d = next(iter(pose_3d.values()))
 

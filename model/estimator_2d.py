@@ -7,12 +7,10 @@ class Estimator2D(object):
         pass
 
     @abc.abstractclassmethod
-    def estimate(self, video, bboxes=None):
+    def estimate(self, video):
         """
         Args:
             video: Array of images (N, BGR, H, W)
-            bboxest: Array of bounding-box (left_top x, left_top y, 
-                bbox_width, bbox_height).
         Return:
             keypoints: Array of 2d-keypoint position with confidence levels 
             (n_joints, 3)

@@ -112,9 +112,18 @@ def video_settings():
                         id="show-detections",
                         className="mb-4",
                         value=[],
-                        #switch=True,
+                        inline=True,
+                        switch=True,
                     ),
-                    
+                    dbc.Select(
+                        id = 'estimator_select',
+                        options=[
+                            {"label": "LPN + VideoPose3D", "value": 0},
+                            {"label": "MediaPipe + VideoPose3D", "value": 1},
+                        ],
+                        value = 1,
+                        className="mb-4",
+                    ),
                     dbc.NavLink(
                         dbc.Button("Analyze!", id='analyze_btn',
                                color='primary', disabled=True),

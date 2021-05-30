@@ -70,10 +70,9 @@ class LPN_Estimator2D(Estimator2D):
             Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         ])
 
-    def estimate(self, video, bboxes=None, video_range=None):
-        if bboxes is None:
-            bboxes = detect_person('yolov5s', video, pred_every=2)
-
+    def estimate(self, video):
+        # person detection on every 3rd frame interpolating in between
+        bboxes = detect_person('yolov5s', video, pred_every=3)
         # Convert bboxes to correct aspect ratio
         bboxes = np.apply_along_axis(adjust_aspect_ratio, 1, bboxes, aspect_ratio=3/4)
 
@@ -95,10 +94,9 @@ class LPN_Estimator2D(Estimator2D):
             pose_2d = np.vstack(pose_2d)
 
         # create VideoPose3D-compatible metadata and keypoint structure
-        video_name = 'video' #Path(video_ds.path).stem
         metadata = suggest_metadata('coco')
         video_meta = {'w': video.size[0], 'h': video.size[1], 'fps': video.fps}
-        metadata['video_metadata'] = {video_name: video_meta}
+        metadata['video_metadata'] = {'video': video_meta}
         keypoints = {video_name: {'custom': [pose_2d]}}
 
         return keypoints, metadata
