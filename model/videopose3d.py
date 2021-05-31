@@ -72,7 +72,7 @@ class VideoPose3D (Estimator3D):
         pose_3d[:, :, 2] -= np.min(pose_3d[:, :, 2])
         return pose_3d
 
-    def create_model(self, cfg, checkpoint):        
+    def create_model(self, cfg, ckpt_file):        
         # specify models hyperparameters - loaded from config yaml
         model_params = cfg['MODEL']
         filter_widths = model_params['filter_widths'] #[3,3,3,3,3]
@@ -86,8 +86,21 @@ class VideoPose3D (Estimator3D):
         # create model and load checkpoint
         model_pos = TemporalModel(n_joints_in, 2, n_joints_out, filter_widths, 
                                   causal, dropout, channels)
-        checkpoint = torch.load(checkpoint, map_location=lambda storage, loc: storage)
-        model_pos.load_state_dict(checkpoint['model_pos'])
+
+        checkpoint = torch.load(ckpt_file, map_location=lambda storage, loc: storage)
+        if 'pretrained_h36m_detectron_coco.bin' in ckpt_file:
+            model_pos.load_state_dict(checkpoint['model_pos'])
+        elif 'pretrained_video2bvh.pth' in ckpt_file:
+            pretrained_dict = checkpoint['model_state']
+            model_dict = model_pos.state_dict()
+            pretrained_dict = {
+                k: v for k, v in pretrained_dict.items()
+                if k in model_dict
+            }
+            model_dict.update(pretrained_dict)
+            model_pos.load_state_dict(model_dict)
+        else:
+            model_pos.load_state_dict(checkpoint)
         model_pos.eval() # Important for dropout!
 
         # push to gpu

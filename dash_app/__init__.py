@@ -10,7 +10,7 @@ from dash_extensions.enrich import MultiplexerTransform, ServersideOutputTransfo
 
 def create_server():
     server = Flask(__name__)
-    #server.config.from_object(BaseConfig)
+    #app.config.from_object("config.Config")
 
     #register_extensions(server)
     register_dashapps(server)

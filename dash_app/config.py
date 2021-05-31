@@ -1,6 +1,6 @@
 from flask.helpers import get_root_path
 
-class Config:
+class DashConfig:
 	ROOT_PATH = get_root_path(__name__)
 	UPLOAD_ROOT = ROOT_PATH + '/uploads'
 	ASSETS_ROOT = 'assets'

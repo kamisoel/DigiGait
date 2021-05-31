@@ -24,18 +24,19 @@ class MediaPipe_Estimator2D(Estimator2D):
 
     def estimate(self, video):
         
-        with mp_pose.Pose(static_image_mode=False) as pose:
+        with self.mp_pose.Pose(static_image_mode=False) as pose:
             keypoints = []
             for frame in video:
               result = pose.process(frame)
               keypoints.append([[p.x, p.y] for p in result.pose_landmarks.landmark])
             keypoints = np.vstack(keypoints).reshape(-1, 33, 2)
-            keypoints = mediapipe2openpose(keypoints)
+            pose_2d = mediapipe2openpose(keypoints)
 
             # create VideoPose3D-compatible metadata and keypoint structure
             metadata = suggest_metadata('coco')
+            video_name = 'video'
             video_meta = {'w': video.size[0], 'h': video.size[1], 'fps': video.fps}
-            metadata['video_metadata'] = {'video': video_meta}
+            metadata['video_metadata'] = {video_name: video_meta}
             keypoints = {video_name: {'custom': [pose_2d]}}
 
         return keypoints, metadata

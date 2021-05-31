@@ -95,8 +95,9 @@ class LPN_Estimator2D(Estimator2D):
 
         # create VideoPose3D-compatible metadata and keypoint structure
         metadata = suggest_metadata('coco')
+        video_name = 'video'
         video_meta = {'w': video.size[0], 'h': video.size[1], 'fps': video.fps}
-        metadata['video_metadata'] = {'video': video_meta}
+        metadata['video_metadata'] = {video_name: video_meta}
         keypoints = {video_name: {'custom': [pose_2d]}}
 
         return keypoints, metadata

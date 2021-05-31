@@ -5,8 +5,7 @@ import dash_html_components as html
 
 import numpy as np
 
-from dash_app.config import Config
-from dash_app.utils import get_asset
+from dash_app.utils import get_asset, get_demo_data
 from dash_app.figures import create_skeleton_fig, create_angle_figure
 
 
@@ -186,19 +185,9 @@ def pose_card():
         ]
     )
 
-
-def init_data():
-    from pathlib import Path
-    # load demo Data
-    demo_path = Path(Config.DEMO_DATA) / 'demo_data.npz'
-    demo_data = np.load(demo_path, allow_pickle=True)
-    demo_pose = demo_data['pose_3d']
-    demo_angles = demo_data['angles'].item()
-    return demo_pose, demo_angles
-
 # LAYOUT
 #=======
-demo_pose, demo_angles = init_data()
+demo_pose, demo_angles = get_demo_data()
 
 layout = html.Div([
     #dcc.Store(id='session', storage_type='session'),

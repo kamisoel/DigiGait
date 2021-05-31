@@ -6,7 +6,7 @@ from pathlib import Path
 
 import numpy as np
 
-from dash_app.config import Config
+from dash_app.config import DashConfig
 from data.person_detection import detect_person
 from model.videopose3d import VideoPose3D
 from data.video import Video
@@ -29,15 +29,22 @@ def get_duration(video_path):
 
 
 def get_asset(file):
-	return os.path.join(Config.ASSETS_ROOT, file)
+	return os.path.join(DashConfig.ASSETS_ROOT, file)
 
 
 def random_upload_url(mkdir=False):
 	from secrets import token_urlsafe
-	url = Path(Config.UPLOAD_ROOT) / token_urlsafe(16)
+	url = Path(DashConfig.UPLOAD_ROOT) / token_urlsafe(16)
 	if mkdir:
 		url.mkdir(parents=True, exist_ok=True)
 	return url
+
+def get_demo_data():
+    demo_path = Path(DashConfig.DEMO_DATA) / 'demo_data.npz'
+    demo_data = np.load(demo_path, allow_pickle=True)
+    demo_pose = demo_data['pose_3d']
+    demo_angles = demo_data['angles'].item()
+    return demo_pose, demo_angles
 
 def memory_file(content):
 	return Cursor(content) # alt: io.BytesIO(content)
@@ -45,7 +52,7 @@ def memory_file(content):
 def run_estimation_file(video_name='video.mp4', bbox_name='bboxes.npy', 
 					in_dir=None, video_range=None):
 	if in_dir is None:
-		in_dir = Config.UPLOAD_ROOT
+		in_dir = DashConfig.UPLOAD_ROOT
 		
 	in_dir = Path(in_dir)
 	video_file = in_dir / video_name
@@ -66,14 +73,16 @@ def run_estimation(video_path, video_range=None, pipeline='Mediapipe + VideoPose
 		start, end = map(lambda x: round(x*video.fps), video_range)
 		video = video[start:end] if video_range is not None else video
 
-		if pipeline == 'LPN + VideoPose3D':
+		if pipeline == 0: #'LPN + VideoPose3D':
 			from model.lpn_estimator_2d import LPN_Estimator2D
 			estimator_2d = LPN_Estimator2D()
 			estimator_3d = VideoPose3D()
-		elif pipeline == 'MediaPipe + VideoPose3D':
+		elif pipeline == 1: #'MediaPipe + VideoPose3D':
 			from model.mediapipe_estimator import MediaPipe_Estimator2D
-			estimator_2d = Medipipe_Estimator2D()
+			estimator_2d = MediaPipe_Estimator2D()
 			estimator_3d = VideoPose3D(openpose=True)
+		else:
+			raise ValueError('Invalid Pipeline!')
 
 		keypoints, meta = estimator_2d.estimate(video)
 		pose_3d = estimator_3d.estimate(keypoints, meta)

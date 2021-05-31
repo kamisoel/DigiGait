@@ -4,7 +4,6 @@ from dash.exceptions import PreventUpdate
 
 from dash_app.layout import video_range_slider, get_video_player
 from dash_app import utils
-from dash_app.config import Config
 from dash_app import figures
 
 import base64
@@ -57,7 +56,6 @@ def register_callbacks(app):
                   Output('console', 'children'),
                   Input('angle_graph', 'clickData'))
     def show_frame(click_data):
-        print(click_data)
         return json.dumps(click_data, indent=2)
 
 
@@ -66,7 +64,7 @@ def register_callbacks(app):
                   Trigger('analyze_btn', 'n_clicks'),
                   State('video_data', 'data'),
                   State('video_range', 'value'),
-                  State('estimator_choice', 'label'),
+                  State('estimator_select', 'value'),
                   )
     def analyze_clicked(video_content, slider_value, pipeline):
         #upload_dir = session_data['upload_dir']
