@@ -77,9 +77,13 @@ def run_estimation(video_path, video_range=None, pipeline='Mediapipe + VideoPose
 			from model.lpn_estimator_2d import LPN_Estimator2D
 			estimator_2d = LPN_Estimator2D()
 			estimator_3d = VideoPose3D()
-		elif pipeline == 1: #'MediaPipe + VideoPose3D':
+		elif pipeline == 1: #'MediaPipe + VideoPose3D (w/o feet)':
 			from model.mediapipe_estimator import MediaPipe_Estimator2D
-			estimator_2d = MediaPipe_Estimator2D()
+			estimator_2d = MediaPipe_Estimator2D(out_format='coco')
+			estimator_3d = VideoPose3D()
+		elif pipeline == 2: #'MediaPipe + VideoPose3D (w/ feet)':
+			from model.mediapipe_estimator import MediaPipe_Estimator2D
+			estimator_2d = MediaPipe_Estimator2D(out_format='openpose')
 			estimator_3d = VideoPose3D(openpose=True)
 		else:
 			raise ValueError('Invalid Pipeline!')

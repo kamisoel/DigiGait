@@ -34,7 +34,7 @@ class VideoPose3D (Estimator3D):
 
         else:
             if not Path(self.CKPT_FILE).exists():
-                self.download_weights()
+                self.download_original_weights()
             ckpt = self.CKPT_FILE
 
             with Path(self.CFG_FILE).open("r") as ymlfile:

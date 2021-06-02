@@ -119,7 +119,8 @@ def video_settings():
                         id = 'estimator_select',
                         options=[
                             {"label": "LPN + VideoPose3D", "value": 0},
-                            {"label": "MediaPipe + VideoPose3D", "value": 1},
+                            {"label": "MediaPipe + VideoPose3D (w/o feet)", "value": 1},
+                            {"label": "MediaPipe + VideoPose3D (w/ feet)", "value": 2, disabled=True},
                         ],
                         value = 1,
                         className="mb-4",
