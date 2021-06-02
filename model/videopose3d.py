@@ -63,14 +63,6 @@ class VideoPose3D (Estimator3D):
             print('GoogleDriveDownloader has to be installed for automatic download' \
                 'You can download the weights manually under: https://drive.google.com/file/d/1lfTWNqnqIvsf2h959Ole7t8/view?usp=sharing')
 
-    def post_process(self, pose_3d):
-        #transform to world coordinates
-        rot = np.array([0.1407056450843811, -0.1500701755285263, 
-                        -0.755240797996521, 0.6223280429840088], dtype='float32')
-        pose_3d = camera.camera_to_world(pose_3d, R=rot, t=0)
-        # We don't have the trajectory, but at least we can rebase the height
-        pose_3d[:, :, 2] -= np.min(pose_3d[:, :, 2])
-        return pose_3d
 
     def create_model(self, cfg, ckpt_file):        
         # specify models hyperparameters - loaded from config yaml
@@ -110,6 +102,7 @@ class VideoPose3D (Estimator3D):
 
         return model_pos
 
+
     def post_process(self, pose_3d):
         pose_3d = np.ascontiguousarray(pose_3d)
         #transform to world coordinates
@@ -120,13 +113,14 @@ class VideoPose3D (Estimator3D):
         pose_3d[:, :, 2] -= np.min(pose_3d[:, :, 2])
         return pose_3d
 
+
     def estimate(self, keypoints, meta):
         pad = (self.model.receptive_field() - 1) // 2 # Padding on each side
         causal_shift = pad if self.causal else 0
 
         predictions = {}
         for video in keypoints:
-            kps = keypoints[video]['custom'][0]
+            kps = keypoints[video]['custom'][0].copy()
             # Normalize camera frames to image size
             res = meta['video_metadata'][video]
             kps[..., :2] = camera.normalize_screen_coordinates(kps[..., :2], 

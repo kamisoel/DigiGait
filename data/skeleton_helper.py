@@ -1,37 +1,39 @@
 import numpy as np
 
 def mediapipe2openpose(keypoints):
-	op_idx = OpenPoseSkeleton().keypoint2index
-	mp_idx = MediaPipeSkeleton().keypoint2index
+    op_idx = OpenPoseSkeleton().keypoint2index
+    mp_idx = MediaPipeSkeleton().keypoint2index
 
-	op_kpts = np.zeros((len(keypoints), 25, 2))
-	op_kpts[:,op_idx['Nose']] = keypoints[:,mp_idx['Nose']]
-	op_kpts[:,op_idx['Neck']] = keypoints[:,mp_idx['left_shoulder']] - keypoints[:,mp_idx['right_shoulder']]
-	op_kpts[:,op_idx['RShoulder']] = keypoints[:,mp_idx['right_shoulder']]
-	op_kpts[:,op_idx['RElbow']] = keypoints[:,mp_idx['right_elbow']]
-	op_kpts[:,op_idx['RWrist']] = keypoints[:,mp_idx['right_wrist']]
-	op_kpts[:,op_idx['LShoulder']] = keypoints[:,mp_idx['left_shoulder']]
-	op_kpts[:,op_idx['LElbow']] = keypoints[:,mp_idx['left_elbow']]
-	op_kpts[:,op_idx['LWrist']] = keypoints[:,mp_idx['left_wrist']]
-	op_kpts[:,op_idx['MidHip']] = keypoints[:,mp_idx['right_hip']]
-	op_kpts[:,op_idx['RHip']] = keypoints[:,mp_idx['left_hip']] - keypoints[:,mp_idx['right_hip']]
-	op_kpts[:,op_idx['RKnee']] = keypoints[:,mp_idx['right_knee']]
-	op_kpts[:,op_idx['RAnkle']] = keypoints[:,mp_idx['right_ankle']]
-	op_kpts[:,op_idx['LHip']] = keypoints[:,mp_idx['left_hip']]
-	op_kpts[:,op_idx['LKnee']] = keypoints[:,mp_idx['left_knee']]
-	op_kpts[:,op_idx['LAnkle']] = keypoints[:,mp_idx['left_ankle']]
-	op_kpts[:,op_idx['REye']] = keypoints[:,mp_idx['right_eye']]
-	op_kpts[:,op_idx['LEye']] = keypoints[:,mp_idx['left_eye']]
-	op_kpts[:,op_idx['REar']] = keypoints[:,mp_idx['right_ear']]
-	op_kpts[:,op_idx['LEar']] = keypoints[:,mp_idx['left_ear']]
-	op_kpts[:,op_idx['LBigToe']] = keypoints[:,mp_idx['left_foot_index']]
-	op_kpts[:,op_idx['LSmallToe']] = keypoints[:,mp_idx['left_foot_index']]
-	op_kpts[:,op_idx['LHeel']] = keypoints[:,mp_idx['left_heel']]
-	op_kpts[:,op_idx['RBigToe']] = keypoints[:,mp_idx['right_foot_index']]
-	op_kpts[:,op_idx['RSmallToe']] = keypoints[:,mp_idx['right_foot_index']]
-	op_kpts[:,op_idx['RHeel']] = keypoints[:,mp_idx['right_heel']]
+    op_kpts = np.zeros((len(keypoints), 25, 2))
+    op_kpts[:,op_idx['Nose']] = keypoints[:,mp_idx['Nose']]
+    op_kpts[:,op_idx['Neck']] = 0.5 * (keypoints[:,mp_idx['left_shoulder']] + 
+                                        keypoints[:,mp_idx['right_shoulder']])
+    op_kpts[:,op_idx['RShoulder']] = keypoints[:,mp_idx['right_shoulder']]
+    op_kpts[:,op_idx['RElbow']] = keypoints[:,mp_idx['right_elbow']]
+    op_kpts[:,op_idx['RWrist']] = keypoints[:,mp_idx['right_wrist']]
+    op_kpts[:,op_idx['LShoulder']] = keypoints[:,mp_idx['left_shoulder']]
+    op_kpts[:,op_idx['LElbow']] = keypoints[:,mp_idx['left_elbow']]
+    op_kpts[:,op_idx['LWrist']] = keypoints[:,mp_idx['left_wrist']]
+    op_kpts[:,op_idx['MidHip']] = 0.5 * (keypoints[:,mp_idx['left_hip']] +
+                                        keypoints[:,mp_idx['right_hip']])
+    op_kpts[:,op_idx['RHip']] = keypoints[:,mp_idx['right_hip']]
+    op_kpts[:,op_idx['RKnee']] = keypoints[:,mp_idx['right_knee']]
+    op_kpts[:,op_idx['RAnkle']] = keypoints[:,mp_idx['right_ankle']]
+    op_kpts[:,op_idx['LHip']] = keypoints[:,mp_idx['left_hip']]
+    op_kpts[:,op_idx['LKnee']] = keypoints[:,mp_idx['left_knee']]
+    op_kpts[:,op_idx['LAnkle']] = keypoints[:,mp_idx['left_ankle']]
+    op_kpts[:,op_idx['REye']] = keypoints[:,mp_idx['right_eye']]
+    op_kpts[:,op_idx['LEye']] = keypoints[:,mp_idx['left_eye']]
+    op_kpts[:,op_idx['REar']] = keypoints[:,mp_idx['right_ear']]
+    op_kpts[:,op_idx['LEar']] = keypoints[:,mp_idx['left_ear']]
+    op_kpts[:,op_idx['LBigToe']] = keypoints[:,mp_idx['left_foot_index']]
+    op_kpts[:,op_idx['LSmallToe']] = keypoints[:,mp_idx['left_foot_index']]
+    op_kpts[:,op_idx['LHeel']] = keypoints[:,mp_idx['left_heel']]
+    op_kpts[:,op_idx['RBigToe']] = keypoints[:,mp_idx['right_foot_index']]
+    op_kpts[:,op_idx['RSmallToe']] = keypoints[:,mp_idx['right_foot_index']]
+    op_kpts[:,op_idx['RHeel']] = keypoints[:,mp_idx['right_heel']]
 
-	return op_kpts
+    return op_kpts
 
 
 class OpenPoseSkeleton(object):
