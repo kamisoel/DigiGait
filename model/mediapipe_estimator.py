@@ -27,7 +27,7 @@ class MediaPipe_Estimator2D(Estimator2D):
     def _image_coordinates(self, X, w, h):
         assert X.shape[-1] == 2
         # Reverse camera frame normalization
-        return (X + [1, h/w])*w/2
+        return X * [w, h]
 
     def estimate(self, video):
         
