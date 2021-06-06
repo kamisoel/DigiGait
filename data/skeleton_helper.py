@@ -1,10 +1,11 @@
 import numpy as np
 
 def mediapipe2openpose(keypoints):
-    op_idx = OpenPoseSkeleton().keypoint2index
     mp_idx = MediaPipeSkeleton().keypoint2index
+    op_skel = OpenPoseSkeleton()
+    op_idx = op_skel.keypoint2index
 
-    op_kpts = np.zeros((len(keypoints), op_idx.keypoint_num, 2))
+    op_kpts = np.zeros((len(keypoints), op_skel.keypoint_num, 2))
     op_kpts[:,op_idx['Nose']] =         keypoints[:,mp_idx['Nose']]
     op_kpts[:,op_idx['Neck']] =  0.5 * (keypoints[:,mp_idx['left_shoulder']] + 
                                         keypoints[:,mp_idx['right_shoulder']])
@@ -37,13 +38,12 @@ def mediapipe2openpose(keypoints):
 
 
 def mediapipe2coco(keypoints):
-    coco_idx = CocoSkeleton().keypoint2index
     mp_idx = MediaPipeSkeleton().keypoint2index
+    coco_skel = CocoSkeleton()
+    coco_idx = coco_skel.keypoint2index
 
-    coco_kpts = np.zeros((len(keypoints), coco_idx.keypoint_num, 2))
+    coco_kpts = np.zeros((len(keypoints), coco_skel.keypoint_num, 2))
     coco_kpts[:,coco_idx['Nose']] =       keypoints[:,mp_idx['Nose']]
-    coco_kpts[:,coco_idx['Neck']] = 0.5 *(keypoints[:,mp_idx['left_shoulder']] + 
-                                          keypoints[:,mp_idx['right_shoulder']])
     coco_kpts[:,coco_idx['RShoulder']] =  keypoints[:,mp_idx['right_shoulder']]
     coco_kpts[:,coco_idx['RElbow']] =     keypoints[:,mp_idx['right_elbow']]
     coco_kpts[:,coco_idx['RWrist']] =     keypoints[:,mp_idx['right_wrist']]
@@ -70,23 +70,22 @@ class CocoSkeleton(object):
     def __init__(self):
         self.keypoint2index = {
             'Nose':      0,
-            'Neck':      1,
-            'RShoulder': 2,
-            'RElbow':    3,
-            'RWrist':    4,
-            'LShoulder': 5,
-            'LElbow':    6,
-            'LWrist':    7,
-            'RHip':      8,
-            'RKnee':     9,
-            'RAnkle':   10,
-            'LHip':     11,
-            'LKnee':    12,
-            'LAnkle':   13,
-            'REye':     14,
-            'LEye':     15,
-            'REar':     16,
-            'LEar':     17,
+            'RShoulder': 1,
+            'RElbow':    2,
+            'RWrist':    3,
+            'LShoulder': 4,
+            'LElbow':    5,
+            'LWrist':    6,
+            'RHip':      7,
+            'RKnee':     8,
+            'RAnkle':    9,
+            'LHip':     10,
+            'LKnee':    11,
+            'LAnkle':   12,
+            'REye':     13,
+            'LEye':     14,
+            'REar':     15,
+            'LEar':     16,
         }
         self.keypoints = list(self.keypoint2index.keys())
         self.keypoint_num = len(self.keypoints)

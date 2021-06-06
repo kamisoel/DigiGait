@@ -23,6 +23,7 @@ class MediaPipe_Estimator2D(Estimator2D):
         self.mp_pose = mp.solutions.pose
 
 
+
     def _image_coordinates(self, X, w, h):
         assert X.shape[-1] == 2
         # Reverse camera frame normalization
@@ -40,7 +41,7 @@ class MediaPipe_Estimator2D(Estimator2D):
             if self.out_format == 'coco':
                 pose_2d = mediapipe2coco(pose_2d)
 
-            elif: self.out_format == 'openpose':
+            elif self.out_format == 'openpose':
                 pose_2d = mediapipe2openpose(pose_2d)
 
             pose_2d = self._image_coordinates(pose_2d, *video.size)
