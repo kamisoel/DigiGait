@@ -81,7 +81,7 @@ def video_range_slider(duration):
             id='video_range',
             min=0,
             max=duration,
-            marks={i: f'{i}s' for i in range(0, duration+1, duration//4)},
+            marks={i: f'{i}s' for i in range(0, duration+1, max(1,duration//4))},
             tooltip = { 'always_visible': True, 'placement': 'bottom'},
             pushable=3,
             value=[0,duration],

@@ -70,7 +70,8 @@ def run_estimation_file(video_name='video.mp4', bbox_name='bboxes.npy',
 def run_estimation(video_path, video_range=None, pipeline='Mediapipe + VideoPose3D'):
 	with Video(video_path) as video:
 
-		start, end = map(lambda x: round(x*video.fps), video_range)
+		start, end = map(lambda x: int(x*video.fps), video_range)
+		end = min(end, len(video))
 		video = video[start:end] if video_range is not None else video
 
 		if pipeline == 0: #'LPN + VideoPose3D':

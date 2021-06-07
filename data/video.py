@@ -10,7 +10,7 @@ class Video(object):
         self._video = video
         self._reader = imageio.get_reader(video, 'ffmpeg')
         self._meta = self._reader.get_meta_data()
-        self._nframes = round(self._meta['duration'] * self._meta['fps'])
+        self._nframes = int(self._meta['duration'] * self._meta['fps'])
 
     @property
     def metadata(self):
@@ -26,7 +26,8 @@ class Video(object):
 
     @property
     def size(self):
-        return self._meta['size']
+        h,w = self._meta['size']
+        return w, h
 
     def close(self):
         self._reader.close()

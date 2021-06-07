@@ -34,8 +34,8 @@ class MediaPipe_Estimator2D(Estimator2D):
         with self.mp_pose.Pose(static_image_mode=False) as pose:
             pose_2d = []
             for frame in video:
-              result = pose.process(frame)
-              pose_2d.append([[p.x, p.y] for p in result.pose_landmarks.landmark])
+                result = pose.process(frame)
+                pose_2d.append([[p.x, p.y] for p in result.pose_landmarks.landmark])
             pose_2d = np.vstack(pose_2d).reshape(-1, 33, 2)
 
             if self.out_format == 'coco':
