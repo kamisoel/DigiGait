@@ -35,7 +35,10 @@ class MediaPipe_Estimator2D(Estimator2D):
             pose_2d = []
             for frame in video:
                 result = pose.process(frame)
-                pose_2d.append([[p.x, p.y] for p in result.pose_landmarks.landmark])
+                if result.pose_landmarks is not None:
+                    pose_2d.append([[p.x, p.y] for p in result.pose_landmarks.landmark])
+                else:
+                    pose_2d.append([[0, 0] for _ in range(33)])
             pose_2d = np.vstack(pose_2d).reshape(-1, 33, 2)
 
             if self.out_format == 'coco':
