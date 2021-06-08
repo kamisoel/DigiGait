@@ -34,8 +34,8 @@ class MediaPipe_Estimator2D(Estimator2D):
         
         with self.mp_pose.Pose(
             static_image_mode=False, 
-            smooth_landmarks=True,
-            model_complexity=self.model_complexity) as pose:
+            #model_complexity=self.model_complexity,
+            smooth_landmarks=True,) as pose:
             
             pose_2d = []
             for frame in video:
