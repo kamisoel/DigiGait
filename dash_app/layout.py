@@ -107,11 +107,11 @@ def video_settings():
 
                     dbc.Checklist(
                         options=[
-                            {"label": "Show Detections", "value": 1},
+                            {"label": "Show Gait Cycles", "value": 'show_cycles'},
                         ],
-                        id="show-detections",
+                        id="option_boxes",
                         className="mb-4",
-                        value=[],
+                        value=['show_cycles'],
                         inline=True,
                         switch=True,
                     ),

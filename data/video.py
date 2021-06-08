@@ -26,7 +26,7 @@ class Video(object):
 
     @property
     def size(self):
-        h,w = self._meta['size']
+        w,h = self._meta['size'] #is this w,h or h,w ??
         return w, h
 
     def close(self):

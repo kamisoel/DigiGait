@@ -52,9 +52,18 @@ humaneva20_metadata = {
     ]
 }
 
+mediapipe_metadata = {
+    'layout_name': 'mediapipe',
+    'num_joints': 33,
+    'keypoints_symmetry': [
+        [1, 2, 3, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29, 31],
+        [4, 5, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32]
+    ]
+}
+
 def suggest_metadata(name):
     names = []
-    for metadata in [mpii_metadata, coco_metadata, h36m_metadata, humaneva15_metadata, humaneva20_metadata]:
+    for metadata in [mpii_metadata, coco_metadata, h36m_metadata, humaneva15_metadata, humaneva20_metadata, mediapipe_metadata]:
         if metadata['layout_name'] in name:
             return metadata
         names.append(metadata['layout_name'])

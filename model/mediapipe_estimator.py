@@ -17,7 +17,7 @@ class MediaPipe_Estimator2D(Estimator2D):
 
     BATCH_SIZE = 64
 
-    def __init__(self, out_format='coco', device='cpu'):
+    def __init__(self, out_format='mediapipe', device='cpu'):
         self.device = device
         self.out_format = out_format
         self.mp_pose = mp.solutions.pose
@@ -43,7 +43,6 @@ class MediaPipe_Estimator2D(Estimator2D):
 
             if self.out_format == 'coco':
                 pose_2d = mediapipe2coco(pose_2d)
-
             elif self.out_format == 'openpose':
                 pose_2d = mediapipe2openpose(pose_2d)
 

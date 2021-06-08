@@ -111,7 +111,7 @@ def create_skeleton_fig(pose_3d, skeleton=None, joints=None, fps=25, height=500)
 
     return go.Figure(data=frames[0].data, layout=layout, frames=frames)
 
-def create_angle_figure(angles, joint='Knee'):
+def create_angle_figure(angles, gait_cycles=[], joint='Knee'):
     names = ['Right', 'Left']
     fig = go.Figure()#make_subplots(2, 1, shared_xaxes=True)
     for i, n in enumerate(['Right'+joint, 'Left'+joint]):
@@ -138,4 +138,8 @@ def create_angle_figure(angles, joint='Knee'):
         dict(type="line", x0=0, x1=0, y0=120, y1=200, line_color="green"), 
         #row="all", col=1
     )
+    for x in gait_cycles:
+        fig.add_shape(
+            dict(type="line", x0=x, x1=x, y0=120, y1=200, line_color="orange")
+        )
     return fig
