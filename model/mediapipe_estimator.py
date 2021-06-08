@@ -17,10 +17,11 @@ class MediaPipe_Estimator2D(Estimator2D):
 
     BATCH_SIZE = 64
 
-    def __init__(self, out_format='mediapipe', device='cpu'):
+    def __init__(self, out_format='mediapipe', device='cpu', model_complexity=1):
         self.device = device
         self.out_format = out_format
         self.mp_pose = mp.solutions.pose
+        self.model_complexity = model_complexity
 
 
 
@@ -31,7 +32,11 @@ class MediaPipe_Estimator2D(Estimator2D):
 
     def estimate(self, video):
         
-        with self.mp_pose.Pose(static_image_mode=False) as pose:
+        with self.mp_pose.Pose(
+            static_image_mode=False, 
+            smooth_landmarks=True,
+            model_complexity=self.model_complexity) as pose:
+            
             pose_2d = []
             for frame in video:
                 result = pose.process(frame)

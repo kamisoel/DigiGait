@@ -31,7 +31,7 @@ class GaitCycleDetector(object):
 
 		mins, maxs = self._peakdet(filtered_dist, 0.5)
 
-		return mins[:,0], maxs[:,0] #return just the frames
+		return maxs[:,0] #return just the frames of the peaks
 
 
 	# Peak detection script converted from MATLAB script

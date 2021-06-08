@@ -118,11 +118,11 @@ def video_settings():
                     dbc.Select(
                         id = 'estimator_select',
                         options=[
-                            {"label": "LPN + VideoPose3D", "value": 0},
-                            {"label": "MediaPipe + VideoPose3D (w/o feet)", "value": 1},
-                            {"label": "MediaPipe + VideoPose3D (w/ feet)", "value": 2, "disabled":True},
+                            {"label": "LPN + VideoPose3D", "value": 'lpn'},
+                            {"label": "MediaPipe + VideoPose3D (w/o feet)", "value": 'mp_nf'},
+                            {"label": "MediaPipe + VideoPose3D (w/ feet)", "value": 'mp_wf', "disabled":True},
                         ],
-                        value = 1,
+                        value = 'mp_nf',
                         className="mb-4",
                     ),
                     dbc.NavLink(

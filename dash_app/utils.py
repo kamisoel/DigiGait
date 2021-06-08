@@ -75,35 +75,35 @@ def run_estimation(video_path, video_range=None, pipeline='Mediapipe + VideoPose
 		end = min(end, len(video))
 		video = video[start:end] if video_range is not None else video
 
-		if pipeline == 0: #'LPN + VideoPose3D':
+		if pipeline == 'lpn': #'LPN + VideoPose3D':
 			from model.lpn_estimator_2d import LPN_Estimator2D
 			estimator_2d = LPN_Estimator2D()
 			estimator_3d = VideoPose3D()
 			phase_detector = GaitCycleDetector(pose_format='coco')
-		elif pipeline == 1: #'MediaPipe + VideoPose3D (w/o feet)':
+		elif pipeline == 'mp_nf': #'MediaPipe + VideoPose3D (w/o feet)':
 			from model.mediapipe_estimator import MediaPipe_Estimator2D
 			estimator_2d = MediaPipe_Estimator2D(out_format='coco')
 			estimator_3d = VideoPose3D()
 			phase_detector = GaitCycleDetector(pose_format='coco')
-		elif pipeline == 2: #'MediaPipe + VideoPose3D (w/ feet)':
+		elif pipeline == 'mp_wf': #'MediaPipe + VideoPose3D (w/ feet)':
 			from model.mediapipe_estimator import MediaPipe_Estimator2D
 			estimator_2d = MediaPipe_Estimator2D(out_format='openpose')
 			estimator_3d = VideoPose3D(openpose=True)
 			phase_detector = GaitCycleDetector(pose_format='openpose')
 		else:
-			raise ValueError('Invalid Pipeline!')
+			raise ValueError('Invalid Pipeline: ', pipeline)
 
 		keypoints, meta = estimator_2d.estimate(video)
 		pose_2d = keypoints['video']['custom'][0]
 		pose_3d = estimator_3d.estimate(keypoints, meta)
 		pose_3d = next(iter(pose_3d.values()))
 
-		mins, maxs = phase_detector.simple_detection(pose_2d)
+		peaks = phase_detector.simple_detection(pose_2d)
 		knee_angles = calc_common_angles(pose_3d)
 
 		#skeleton_helper = H36mSkeletonHelper()
 		#angles = skeleton_helper.pose2euler(pose_3d)
 		#knee_angles = {k: v[:,1] for k, v in angles.items() if k.endswith('Knee')}
 
-		return pose_3d, knee_angles, maxs
+		return pose_3d, knee_angles, peaks
 
