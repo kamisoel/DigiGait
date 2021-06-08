@@ -99,12 +99,11 @@ def run_estimation(video_path, video_range=None, pipeline='Mediapipe + VideoPose
 		pose_3d = next(iter(pose_3d.values()))
 
 		mins, maxs = phase_detector.simple_detection(pose_2d)
-		gait_cycles = maxs[:,0]
 		knee_angles = calc_common_angles(pose_3d)
 
 		#skeleton_helper = H36mSkeletonHelper()
 		#angles = skeleton_helper.pose2euler(pose_3d)
 		#knee_angles = {k: v[:,1] for k, v in angles.items() if k.endswith('Knee')}
 
-		return pose_3d, knee_angles, gait_cycles
+		return pose_3d, knee_angles, maxs
 
