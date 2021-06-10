@@ -71,7 +71,8 @@ def register_callbacks(app):
         #upload_dir = session_data['upload_dir']
         video_path = utils.memory_file(video_content)
         pose_3d, knee_angles, gait_cycles = utils.run_estimation(video_path, slider_value, pipeline)
-        skel_fig = figures.create_skeleton_fig(pose_3d)
+        eye = utils.get_sagital_view(pose_3d)
+        skel_fig = figures.create_skeleton_fig(pose_3d, eye=eye)
         if 'show_cycles' not in options:
             gait_cycles = []
         ang_fig = figures.create_angle_figure(knee_angles, gait_cycles)

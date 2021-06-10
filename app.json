@@ -14,16 +14,10 @@
     },
     "formation": {
       "web": {
-        "quantity": 1,
+        "quantity": 2,
         "size": "free"
       }
     },
-    "addons": [
-      "heroku-redis",
-      {
-        "plan": "hobby-dev",
-      },
-    ],
     "buildpacks": [
       {
         "url": "heroku/python"

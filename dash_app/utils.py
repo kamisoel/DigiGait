@@ -45,7 +45,13 @@ def get_demo_data():
     demo_data = np.load(demo_path, allow_pickle=True)
     demo_pose = demo_data['pose_3d']
     demo_angles = demo_data['angles'].item()
-    return demo_pose, demo_angles
+    gait_cycles = demo_data['cycles']
+    return demo_pose, demo_angles, gait_cycles
+
+def get_sagital_view(pose_3d):
+	RHip, LHip = (1, 4)
+	hip = pose_3d[0, RHip] - pose_3d[0, LHip]
+	return dict(x=1+hip[0], y=2.5, z=0.25)
 
 def memory_file(content):
 	return Cursor(content) # alt: io.BytesIO(content)
@@ -99,7 +105,7 @@ def run_estimation(video_path, video_range=None, pipeline='Mediapipe + VideoPose
 		pose_3d = next(iter(pose_3d.values()))
 
 		peaks = phase_detector.simple_detection(pose_2d)
-		knee_angles = calc_common_angles(pose_3d)
+		knee_angles = calc_common_angles(pose_3d, clinical=True)
 
 		#skeleton_helper = H36mSkeletonHelper()
 		#angles = skeleton_helper.pose2euler(pose_3d)

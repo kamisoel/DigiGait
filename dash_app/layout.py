@@ -5,7 +5,7 @@ import dash_html_components as html
 
 import numpy as np
 
-from dash_app.utils import get_asset, get_demo_data
+from dash_app import utils
 from dash_app.figures import create_skeleton_fig, create_angle_figure
 
 
@@ -15,7 +15,7 @@ def create_header():
     return dbc.Navbar([
         html.A(
                 dbc.Row([
-                        dbc.Col(html.Img(src=get_asset('logo.png'), height="30px")),
+                        dbc.Col(html.Img(src=utils.get_asset('logo.png'), height="30px")),
                         dbc.Col(dbc.NavbarBrand("Gait Analyzer", className="ml-2")),
                     ],
                     align="center",
@@ -148,7 +148,7 @@ def video_preview():
                         children=[
                             get_video_player(
                                 'video_player',
-                                get_asset('demo.mp4')),
+                                utils.get_asset('demo.mp4')),
                         ],
                     ),
                 )],
@@ -170,14 +170,14 @@ def pose_card():
                         # 3d viewer
                         dcc.Graph(
                             id="pose_graph",
-                            figure=create_skeleton_fig(demo_pose),
+                            figure=create_skeleton_fig(demo_pose, eye=eye),
                             config={'displaylogo': False,},
                         ), md=5),
                     dbc.Col(
                         # knee joint angle
                         dcc.Graph(
                             id="angle_graph",
-                            figure=create_angle_figure(demo_angles),
+                            figure=create_angle_figure(demo_angles, demo_cycles),
                             config={'displaylogo': False,
                                    'scrollZoom':True},
                         ), md=7)
@@ -188,7 +188,8 @@ def pose_card():
 
 # LAYOUT
 #=======
-demo_pose, demo_angles = get_demo_data()
+demo_pose, demo_angles, demo_cycles = utils.get_demo_data()
+eye = utils.get_sagital_view(demo_pose)
 
 layout = html.Div([
     #dcc.Store(id='session', storage_type='session'),

@@ -11,7 +11,8 @@ def frame_args(duration, redraw=True, transition=False):
             "transition": {"duration": 0},
         }
 
-def create_skeleton_fig(pose_3d, skeleton=None, joints=None, fps=25, height=500):
+def create_skeleton_fig(pose_3d, skeleton=None, joints=None, 
+                        eye=None, fps=25, height=500):
     if skeleton is None:
         skeleton = [-1,  0,  1,  2,  0,  4,  5,  0, \
                      7,  8,  9,  8, 11, 12,  8, 14, 15]
@@ -19,6 +20,9 @@ def create_skeleton_fig(pose_3d, skeleton=None, joints=None, fps=25, height=500)
         joints = "MHip, RHip, RKnee, RAnkle, LHip, LKnee, \
                  LAnkle, Spine, Neck, Nose, Head, LShoulder, \
                  LElbow, LWrist, RShoulder, RElbow, RWrist".split(", ")
+
+    if eye is None:
+        eye = dict(x=-1.0, y=3.0, z=.5)
         
     lines = {'frame': [], 'joint': [], 'x':[], 'y':[], 'z':[]}
     for f in range(len(pose_3d)):
@@ -82,7 +86,7 @@ def create_skeleton_fig(pose_3d, skeleton=None, joints=None, fps=25, height=500)
             aspectratio=dict(x=1, y=1, z=2.),
         ),
         scene_camera=dict(
-            eye=dict(x=-1.0, y=3.0, z=.5),
+            eye=eye,
         ),
         hovermode="closest",
         height=height, #width=400,
@@ -134,12 +138,13 @@ def create_angle_figure(angles, gait_cycles=[], joint='Knee'):
         paper_bgcolor='rgba(0, 0, 0, 0)',
         hoverlabel_bgcolor='black'
     )
+    y_min, y_max = (-25, 90)
     fig.add_shape(
-        dict(type="line", x0=0, x1=0, y0=120, y1=200, line_color="green"), 
+        dict(type="line", x0=0, x1=0, y0=y_min, y1=y_max, line_color="green"), 
         #row="all", col=1
     )
     for x in gait_cycles:
         fig.add_shape(
-            dict(type="line", x0=x, x1=x, y0=120, y1=200, line_color="orange")
+            dict(type="line", x0=x, x1=x, y0=y_min, y1=y_max, line_color="orange")
         )
     return fig
