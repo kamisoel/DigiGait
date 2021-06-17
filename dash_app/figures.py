@@ -12,7 +12,7 @@ def frame_args(duration, redraw=True, transition=False):
         }
 
 def create_skeleton_fig(pose_3d, skeleton=None, joints=None, 
-                        eye=None, fps=25, height=500):
+                        eye=None, fps=50, height=500):
     if skeleton is None:
         skeleton = [-1,  0,  1,  2,  0,  4,  5,  0, \
                      7,  8,  9,  8, 11, 12,  8, 14, 15]
