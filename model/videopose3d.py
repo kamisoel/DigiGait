@@ -23,7 +23,7 @@ class VideoPose3D (Estimator3D):
     CKPT_FILE_OP = 'model/checkpoints/pretrained_video2bvh.pth'
 
 
-    def __init__(self, openpose=False):
+    def __init__(self, openpose=False, use_hfr=True):
         if openpose:
             if not Path(self.CKPT_FILE_OP).exists():
                 self.download_openpose_weights()
@@ -40,6 +40,7 @@ class VideoPose3D (Estimator3D):
             with Path(self.CFG_FILE).open("r") as ymlfile:
                 cfg = yaml.load(ymlfile, Loader=yaml.SafeLoader)
         
+        self.use_hfr = use_hfr
         self.model = self.create_model(cfg, ckpt)
         self.causal = cfg['MODEL']['causal']
 
@@ -120,7 +121,22 @@ class VideoPose3D (Estimator3D):
 
         predictions = {}
         for video in keypoints:
-            kps = keypoints[video]['custom'][0].copy()
+
+            fps = meta['video_metadata'][video]['fps']
+            if self.use_hfr and fps < 50:
+                # interpolate to 50fps
+                pose_2d = keypoints[video]['custom'][0]
+                new_frames = int(50/fps * len(pose_2d))
+                old_t = np.linspace(0, 1, len(pose_2d))
+                new_t = np.linspace(0, 1, new_frames)
+                kps = np.zeros([new_frames, *pose_2d.shape[1:]])
+                for i in range(pose_2d.shape[1]):
+                    for j in range(pose_2d.shape[2]):
+                        kps[:, i, j] = np.interp(new_t, old_t, pose_2d[:,i,j])
+            else:
+                # use original fps
+                kps = keypoints[video]['custom'][0].copy()
+
             # Normalize camera frames to image size
             res = meta['video_metadata'][video]
             kps[..., :2] = camera.normalize_screen_coordinates(kps[..., :2], 
