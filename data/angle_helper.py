@@ -3,15 +3,6 @@ import numpy as np
 
 MHip, RHip, RKnee, RAnkle, LHip, LKnee, LAnkle, Spine, Neck, Head, Site, LShoulder, LElbow, LWrist, RShoulder, RElbow, RWrist = range(17)
 
-def moving_avg(data, window=3):
-    return np.apply_along_axis(lambda x: pd.Series(x).rolling(window).mean(),
-                               arr = data, axis = 0)
-
-def gauss_filter(data, sd=1):
-    from scipy.ndimage.filters import gaussian_filter1d
-    return np.apply_along_axis(lambda x: gaussian_filter1d(x,sd),
-                               arr = data, axis = 0)
-
 def get_joint_angles(pose_3d, joint_idx):
     import vg
     xs = pose_3d[:, joint_idx[1]] - pose_3d[:, joint_idx[0]]
