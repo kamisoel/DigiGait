@@ -2,6 +2,7 @@ import plotly.graph_objs as go
 import plotly.express as px
 
 import pandas as pd
+import numpy as np
 
 def frame_args(duration, redraw=True, transition=False):
     return {
@@ -116,12 +117,12 @@ def create_skeleton_fig(pose_3d, skeleton=None, joints=None,
     return go.Figure(data=frames[0].data, layout=layout, frames=frames)
 
 def create_angle_figure(angles, gait_cycles=[], joint='Knee'):
-    names = ['Right', 'Left']
+    names = ['Right '+joint, 'Left '+joint]
     fig = go.Figure()#make_subplots(2, 1, shared_xaxes=True)
-    for i, n in enumerate(['Right'+joint, 'Left'+joint]):
+    for i in range(len(names)):
         fig.add_trace(
             go.Scatter(
-                y=angles[n],
+                y=angles[:,i],
                 name=names[i], meta=names[i],
                 hovertemplate= '%{meta}: %{y:.1f}°'+
                                 '<extra></extra>'
@@ -130,13 +131,13 @@ def create_angle_figure(angles, gait_cycles=[], joint='Knee'):
     #fig.update_yaxes(matches='y')
     fig.update_layout(
         dragmode= 'pan', 
-        xaxis=dict(range=[0,300]), 
-        yaxis=dict(fixedrange=True),
+        xaxis=dict(range=[0,300], title='Frame'), 
+        yaxis=dict(fixedrange=True, title='Knee Extension/Flexion'),
         margin=dict(l=10, r=10, b=10, t=10),
         hovermode="x unified",
         template='plotly_dark',
         paper_bgcolor='rgba(0, 0, 0, 0)',
-        hoverlabel_bgcolor='black'
+        hoverlabel_bgcolor='black',
     )
     y_min, y_max = (-25, 90)
     fig.add_shape(
@@ -147,4 +148,44 @@ def create_angle_figure(angles, gait_cycles=[], joint='Knee'):
         fig.add_shape(
             dict(type="line", x0=x, x1=x, y0=y_min, y1=y_max, line_color="orange")
         )
+    return fig
+
+
+def create_gait_phase_figure(angles, norm_data=None, joint='Knee'):
+    names = ['Right '+joint, 'Left '+joint]
+    norm_color = 'rgba(162,162,162,0.5)'
+    fig = go.Figure()
+
+    if norm_data is not None:
+        mean, std = norm_data
+        min_norm = mean - 2 * std
+        max_norm = mean + 2 * std
+        x = np.arange(len(mean))
+        fig.add_trace(
+            go.Scatter( x=np.concatenate([x, x[::-1]]), 
+                        y=np.concatenate([max_norm, min_norm[::-1]]), 
+                        fill='tozerox', showlegend=False, mode='none',
+                        hoverinfo='skip', legendgroup='Norm', fillcolor=norm_color)
+        )
+        fig.add_trace(
+            go.Scatter(y=mean, name='Norm value', meta='Norm value',
+                        legendgroup='Norm', line_color=norm_color,
+                        hovertemplate= '%{meta}: %{y:.1f}°<extra></extra>')),
+    for i in range(len(names)):
+        fig.add_trace(
+            go.Scatter(
+                y=angles[i], name=names[i], meta=names[i],
+                hovertemplate= '%{meta}: %{y:.1f}°<extra></extra>'
+            )
+        )
+    fig.update_layout(
+        dragmode= 'pan', 
+        xaxis=dict(range=[0,100], fixedrange=True, title='% Gait Cycle'), 
+        yaxis=dict(fixedrange=True, title='Avg. Knee Extension/Flexion'),
+        margin=dict(l=10, r=10, b=10, t=10),
+        hovermode="x unified",
+        template='plotly_dark',
+        paper_bgcolor='rgba(0, 0, 0, 0)',
+        hoverlabel_bgcolor='black',
+    )
     return fig

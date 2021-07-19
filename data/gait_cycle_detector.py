@@ -73,9 +73,9 @@ class GaitCycleDetector(object):
         #mins, maxs = _peakdet(filtered_dist, 0.5)
         #return maxs[:, 0], mins[:, 0]
 
-        re_peaks, _ = find_peaks(filtered_dist * right_in_front, prominence=prominence)
-        le_peaks, _ = find_peaks(filtered_dist * -right_in_front, prominence=prominence)
-        return le_peaks, re_peaks
+        re_peaks, _ = find_peaks(filtered_dist * -right_in_front, prominence=prominence)
+        le_peaks, _ = find_peaks(filtered_dist * right_in_front, prominence=prominence)
+        return re_peaks, le_peaks
 
 
     def simple_detection(self, pose, filter_sd=5):

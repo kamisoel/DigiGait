@@ -18,14 +18,13 @@ def calc_common_angles(pose_3d, clinical=False):
     Head, Site, LShoulder, LElbow, LWrist, RShoulder, RElbow, RWrist = range(17)
     
     angles = {}
-    #angles['RightKnee'] = np.zeros((pose_3d.shape[0], 3))
-    angles['RightKnee'] = get_joint_angles(pose_3d, [RHip, RKnee, RAnkle]) # y
-    angles['LeftKnee'] = get_joint_angles(pose_3d, [LHip, LKnee, LAnkle]) # y
+    angles['RKnee'] = get_joint_angles(pose_3d, [RHip, RKnee, RAnkle]) # y
+    angles['LKnee'] = get_joint_angles(pose_3d, [LHip, LKnee, LAnkle]) # y
 
     if clinical:
         angles = {k: 180-v for k,v in angles.items()}
 
-    #angles['RightHip'] = get_joint_angles(pose_3d, [Spine, MHip, RKnee, RHip])
-    #angles['LeftHip'] = get_joint_angles(pose_3d, [Spine, MHip, LKnee, LHip])
+    #angles['RHip'] = get_joint_angles(pose_3d, [Spine, MHip, RKnee, RHip])
+    #angles['LHip'] = get_joint_angles(pose_3d, [Spine, MHip, LKnee, LHip])
     return angles
 

@@ -61,20 +61,40 @@ def register_callbacks(app):
 
     @app.callback(Output('pose_graph', 'figure'),
                   Output('angle_graph', 'figure'),
-                  Trigger('analyze_btn', 'n_clicks'),
-                  State('video_data', 'data'),
-                  State('video_range', 'value'),
-                  State('option_boxes','value'),
-                  State('estimator_select', 'value'),
-                  )
-    def analyze_clicked(video_content, slider_value, options, pipeline):
-        #upload_dir = session_data['upload_dir']
-        video_path = utils.memory_file(video_content)
-        pose_3d, knee_angles, gait_cycles = utils.run_estimation(video_path, slider_value, pipeline)
+                  Output('gait_phase_graph', 'figure'),
+                  Input('pose_data', 'data'),
+                  State('option_boxes','value'),)
+    def update_figures(data, options):
+        pose_3d = data['pose']
+        knee_angles = data['angles']
+        gait_cycles = data['rcycles']
+        avg_gait_phase = data['avg_phase']
+        norm_data = data['norm_data']
+
         eye = utils.get_sagital_view(pose_3d)
         skel_fig = figures.create_skeleton_fig(pose_3d, eye=eye)
         if 'show_cycles' not in options:
             gait_cycles = []
         ang_fig = figures.create_angle_figure(knee_angles, gait_cycles)
-        return skel_fig, ang_fig
+        gait_phase_fig = figures.create_gait_phase_figure(
+                            avg_gait_phase, norm_data)
+        return skel_fig, ang_fig, gait_phase_fig
+
+
+    @app.callback(ServersideOutput('pose_data', 'data'),
+                  Trigger('analyze_btn', 'n_clicks'),
+                  State('video_data', 'data'),
+                  State('video_range', 'value'),
+                  State('estimator_select', 'value'),
+                  )
+    def analyze_clicked(video_content, slider_value, pipeline):
+        #upload_dir = session_data['upload_dir']
+        video_path = utils.memory_file(video_content)
+        pose_3d, knee_angles, gait_cycles = utils.run_estimation(video_path, slider_value, pipeline)
+        avg_gait_phase = utils.avg_gait_phase(knee_angles, gait_cycles)
+
+        norm_data = utils.get_norm_data()['Knee']
+
+        return dict(pose=pose_3d, angles=knee_angles, rcycles=gait_cycles[0], lcycles=gait_cycles[1],
+                    avg_phase=avg_gait_phase, norm_data=norm_data)
 

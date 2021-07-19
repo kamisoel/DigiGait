@@ -6,7 +6,7 @@ import dash_html_components as html
 import numpy as np
 
 from dash_app import utils
-from dash_app.figures import create_skeleton_fig, create_angle_figure
+from dash_app.figures import create_skeleton_fig, create_angle_figure, create_gait_phase_figure
 
 
 # COMPONENTS
@@ -16,7 +16,7 @@ def create_header():
         html.A(
                 dbc.Row([
                         dbc.Col(html.Img(src=utils.get_asset('logo.png'), height="30px")),
-                        dbc.Col(dbc.NavbarBrand("Gait Analyzer", className="ml-2")),
+                        dbc.Col(dbc.NavbarBrand("DigiGait", className="ml-2")),
                     ],
                     align="center",
                     no_gutters=True,
@@ -120,7 +120,7 @@ def video_settings():
                         options=[
                             {"label": "LPN + VideoPose3D", "value": 'lpn'},
                             {"label": "MediaPipe + VideoPose3D (w/o feet)", "value": 'mp_nf'},
-                            {"label": "MediaPipe + VideoPose3D (w/ feet)", "value": 'mp_wf', "disabled":True},
+                            #{"label": "MediaPipe + VideoPose3D (w/ feet)", "value": 'mp_wf', "disabled":True},
                         ],
                         value = 'mp_nf',
                         className="mb-4",
@@ -166,6 +166,7 @@ def pose_card():
             dcc.Loading(
                 id="pose-loading",
                 children=dbc.Row([
+                    dcc.Store(id='pose_data'),
                     dbc.Col(
                         # 3d viewer
                         dcc.Graph(
@@ -174,13 +175,27 @@ def pose_card():
                             config={'displaylogo': False,},
                         ), md=5),
                     dbc.Col(
-                        # knee joint angle
-                        dcc.Graph(
-                            id="angle_graph",
-                            figure=create_angle_figure(demo_angles, demo_cycles),
-                            config={'displaylogo': False,
-                                   'scrollZoom':True},
-                        ), md=7)
+                        dbc.Tabs([
+                            dbc.Tab(
+                                dcc.Graph(
+                                    id="angle_graph",
+                                    figure=create_angle_figure(demo_angles, demo_cycles[0]),
+                                    config={'displaylogo': False,
+                                           'scrollZoom':True},
+                                ), label='Overview',
+                            ),
+                            dbc.Tab(
+                                dcc.Graph(
+                                    id="gait_phase_graph",
+                                    figure=create_gait_phase_figure(demo_avg, norm_data),
+                                    config={'displaylogo': False,
+                                           'scrollZoom':True},
+                                ), label='Avg. gait phase'
+                            ),
+                            dcc.Tab(label='Metrics',
+                                
+                            ),
+                        ]), md=7)
                 ]),
             )
         ]
@@ -189,6 +204,8 @@ def pose_card():
 # LAYOUT
 #=======
 demo_pose, demo_angles, demo_cycles = utils.get_demo_data()
+demo_avg = utils.avg_gait_phase(demo_angles, demo_cycles)
+norm_data = utils.get_norm_data()['Knee']
 eye = utils.get_sagital_view(demo_pose)
 
 layout = html.Div([
