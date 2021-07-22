@@ -4,6 +4,7 @@ import sys
 from iocursor import Cursor
 from pathlib import Path
 from collections.abc import Mapping
+from collections import defaultdict
 
 import numpy as np
 
@@ -104,7 +105,9 @@ def run_estimation_file(video_name='video.mp4', bbox_name='bboxes.npy',
     return run_estimation(video_file, bboxes, video_range)
 
 
-def run_estimation(video_path, video_range=None, pipeline='Mediapipe + VideoPose3D'):
+def run_estimation(video_path, video_range=None, 
+                    pipeline='Mediapipe + VideoPose3D',
+                    ops=defaultdict):
     with Video(video_path) as video:
 
         start, end = map(lambda x: int(x*video.fps), video_range)
@@ -114,17 +117,17 @@ def run_estimation(video_path, video_range=None, pipeline='Mediapipe + VideoPose
         if pipeline == 'lpn': #'LPN + VideoPose3D':
             from model.lpn_estimator_2d import LPN_Estimator2D
             estimator_2d = LPN_Estimator2D()
-            estimator_3d = VideoPose3D()
+            estimator_3d = VideoPose3D(normalized_skeleton=ops['skel_norm'])
             #phase_detector = GaitCycleDetector(pose_format='coco')
         elif pipeline == 'mp_nf': #'MediaPipe + VideoPose3D (w/o feet)':
             from model.mediapipe_estimator import MediaPipe_Estimator2D
             estimator_2d = MediaPipe_Estimator2D(out_format='coco')
-            estimator_3d = VideoPose3D()
+            estimator_3d = VideoPose3D(normalized_skeleton=ops['skel_norm'])
             #phase_detector = GaitCycleDetector(pose_format='coco')
         elif pipeline == 'mp_wf': #'MediaPipe + VideoPose3D (w/ feet)':
             from model.mediapipe_estimator import MediaPipe_Estimator2D
             estimator_2d = MediaPipe_Estimator2D(out_format='openpose')
-            estimator_3d = VideoPose3D(openpose=True)
+            estimator_3d = VideoPose3D(openpose=True, normalized_skeleton=ops['skel_norm'])
             #phase_detector = GaitCycleDetector(pose_format='openpose')
         else:
             raise ValueError('Invalid Pipeline: ', pipeline)

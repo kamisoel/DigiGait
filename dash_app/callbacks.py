@@ -8,6 +8,7 @@ from dash_app import figures
 
 import base64
 from pathlib import Path
+from collections import defaultdict
 import json
 
 def register_callbacks(app):
@@ -86,11 +87,13 @@ def register_callbacks(app):
                   State('video_data', 'data'),
                   State('video_range', 'value'),
                   State('estimator_select', 'value'),
+                  State('option_boxes','value')
                   )
-    def analyze_clicked(video_content, slider_value, pipeline):
+    def analyze_clicked(video_content, slider_value, pipeline, options):
         #upload_dir = session_data['upload_dir']
         video_path = utils.memory_file(video_content)
-        pose_3d, knee_angles, gait_cycles = utils.run_estimation(video_path, slider_value, pipeline)
+        ops = defaultdict(bool, {k: (k in options) for k in options})
+        pose_3d, knee_angles, gait_cycles = utils.run_estimation(video_path, slider_value, pipeline, ops)
         avg_gait_phase = utils.avg_gait_phase(knee_angles, gait_cycles)
 
         norm_data = utils.get_norm_data()['Knee']

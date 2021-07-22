@@ -7,8 +7,10 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader
 from torchvision.transforms import Compose, Resize, Normalize
+from scipy.interpolate import interp1d
 
 from data.data_utils import suggest_metadata
+from data.skeleton_helper import CocoSkeleton, OpenPoseSkeleton
 from common import camera
 from common.model import TemporalModel
 from model.estimator_3d import Estimator3D
@@ -23,7 +25,7 @@ class VideoPose3D (Estimator3D):
     CKPT_FILE_OP = 'model/checkpoints/pretrained_video2bvh.pth'
 
 
-    def __init__(self, openpose=False, use_hfr=True):
+    def __init__(self, openpose=False, use_hfr=True, normalized_skeleton=True):
         if openpose:
             if not Path(self.CKPT_FILE_OP).exists():
                 self.download_openpose_weights()
@@ -31,6 +33,8 @@ class VideoPose3D (Estimator3D):
 
             with Path(self.CFG_FILE_OP).open("r") as ymlfile:
                 cfg = yaml.load(ymlfile, Loader=yaml.SafeLoader)
+            
+            self.in_skeleton = OpenPoseSkeleton()
 
         else:
             if not Path(self.CKPT_FILE).exists():
@@ -39,8 +43,11 @@ class VideoPose3D (Estimator3D):
 
             with Path(self.CFG_FILE).open("r") as ymlfile:
                 cfg = yaml.load(ymlfile, Loader=yaml.SafeLoader)
+            
+            self.in_skeleton = CocoSkeleton()
         
         self.use_hfr = use_hfr
+        self.normalized_skeleton = normalized_skeleton
         self.model = self.create_model(cfg, ckpt)
         self.causal = cfg['MODEL']['causal']
 
@@ -114,6 +121,26 @@ class VideoPose3D (Estimator3D):
         pose_3d[:, :, 2] -= np.min(pose_3d[:, :, 2])
         return pose_3d
 
+    def _normalize_skeleton(self, pose_2d):
+        joint_id = self.in_skeleton.keypoint2index
+
+        #avg femur length in H36m training set
+        femur_mean, femur_std = 0.21372303, 0.04855966
+
+        # Normalize to hip-knee distance
+        femur_len_r = np.linalg.norm(
+            pose_2d[:, joint_id['RHip']] - pose_2d[:, joint_id['RKnee']],
+            axis=-1)
+        femur_len_l = np.linalg.norm(
+            pose_2d[:, joint_id['LHip']] - pose_2d[:, joint_id['LKnee']],
+            axis=-1)
+        femur_len = (femur_len_r + femur_len_l) / 2.
+
+        # calc scale factor of the datasets femur length to h36m's
+        femur_scale = femur_len.mean() / femur_mean
+
+        return pose_2d / femur_scale
+
 
     def estimate(self, keypoints, meta):
         pad = (self.model.receptive_field() - 1) // 2 # Padding on each side
@@ -126,21 +153,25 @@ class VideoPose3D (Estimator3D):
             if self.use_hfr and fps < 50:
                 # interpolate to 50fps
                 pose_2d = keypoints[video]['custom'][0]
-                new_frames = int(50/fps * len(pose_2d))
+                new_frames = int(50/fps * len(pose_2d)) # number of frames in 50fps
                 old_t = np.linspace(0, 1, len(pose_2d))
                 new_t = np.linspace(0, 1, new_frames)
                 kps = np.zeros([new_frames, *pose_2d.shape[1:]])
                 for i in range(pose_2d.shape[1]):
                     for j in range(pose_2d.shape[2]):
-                        kps[:, i, j] = np.interp(new_t, old_t, pose_2d[:,i,j])
+                        kps[:, i, j] = interp1d(old_t, pose_2d[:,i,j], kind = 'cubic')(new_t) 
             else:
                 # use original fps
                 kps = keypoints[video]['custom'][0].copy()
 
+
             # Normalize camera frames to image size
             res = meta['video_metadata'][video]
-            kps[..., :2] = camera.normalize_screen_coordinates(kps[..., :2], 
-                                                               w=res['w'], h=res['h'])
+            kps = camera.normalize_screen_coordinates(kps, w=res['w'], h=res['h'])
+            
+            if self.normalized_skeleton:
+                kps = self._normalize_skeleton(kps)
+
             # Pad keypoints with edge mode
             kps = np.expand_dims(np.pad(kps, ((pad + causal_shift, pad - causal_shift), 
                                               (0, 0), (0, 0)), 'edge'), axis=0)

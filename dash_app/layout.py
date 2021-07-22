@@ -108,10 +108,11 @@ def video_settings():
                     dbc.Checklist(
                         options=[
                             {"label": "Show Gait Cycles", "value": 'show_cycles'},
+                            {"label": "Skeleton Normalization", "value": 'skel_norm'}
                         ],
                         id="option_boxes",
                         className="mb-4",
-                        value=['show_cycles'],
+                        value=['show_cycles', 'skel_norm'],
                         inline=True,
                         switch=True,
                     ),
