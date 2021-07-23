@@ -7,3 +7,7 @@
   border-radius: 5px;
   text-align: center;
 }
+
+#video_player {
+  max-height:500px;
+}
