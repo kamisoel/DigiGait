@@ -11,3 +11,7 @@
 #video_player {
   max-height:500px;
 }
+
+.rc-slider-mark-text {
+  color: white;
+}

@@ -1,4 +1,5 @@
 #from dash.dependencies import Input, Output, State
+from dash import no_update
 from dash_extensions.enrich import Output, Input, State, Trigger, ServersideOutput
 from dash.exceptions import PreventUpdate
 
@@ -83,21 +84,24 @@ def register_callbacks(app):
 
 
     @app.callback(ServersideOutput('pose_data', 'data'),
+                  Output("error-toast", "is_open"), 
                   Trigger('analyze_btn', 'n_clicks'),
                   State('video_data', 'data'),
                   State('video_range', 'value'),
                   State('estimator_select', 'value'),
-                  State('option_boxes','value')
+                  State('option_boxes','value'),
                   )
     def analyze_clicked(video_content, slider_value, pipeline, options):
-        #upload_dir = session_data['upload_dir']
-        video_path = utils.memory_file(video_content)
-        ops = defaultdict(bool, {k: (k in options) for k in options})
-        pose_3d, knee_angles, gait_cycles = utils.run_estimation(video_path, slider_value, pipeline, ops)
-        avg_gait_phase = utils.avg_gait_phase(knee_angles, gait_cycles)
+        try:
+            #upload_dir = session_data['upload_dir']
+            video_path = utils.memory_file(video_content)
+            ops = defaultdict(bool, {k: (k in options) for k in options})
+            pose_3d, knee_angles, gait_cycles = utils.run_estimation(video_path, slider_value, pipeline, ops)
+            avg_gait_phase = utils.avg_gait_phase(knee_angles, gait_cycles)
 
-        norm_data = utils.get_norm_data()['Knee']
-
-        return dict(pose=pose_3d, angles=knee_angles, rcycles=gait_cycles[0], lcycles=gait_cycles[1],
-                    avg_phase=avg_gait_phase, norm_data=norm_data)
+            norm_data = utils.get_norm_data()['Knee']
+            return dict(pose=pose_3d, angles=knee_angles, rcycles=gait_cycles[0], lcycles=gait_cycles[1],
+                        avg_phase=avg_gait_phase, norm_data=norm_data), no_update
+        except Exception as e:
+            return no_update, True
 

@@ -72,7 +72,7 @@ def create_skeleton_fig(pose_3d, skeleton=None, joints=None,
             ],
             "label": frame,
             "method": "animate"}
-        for frame in range(0, len(pose_3d)+1, fps)]
+        for frame in range(0, len(pose_3d)+1, fps//2)]
     }
 
     layout=go.Layout(
@@ -138,15 +138,22 @@ def create_angle_figure(angles, gait_cycles=[], joint='Knee'):
         template='plotly_dark',
         paper_bgcolor='rgba(0, 0, 0, 0)',
         hoverlabel_bgcolor='black',
+        legend=dict(
+            x=0.01,
+            y=0.99,
+            traceorder="normal",
+            bgcolor = 'black'
+        ),
     )
-    y_min, y_max = (-25, 90)
     fig.add_shape(
-        dict(type="line", x0=0, x1=0, y0=y_min, y1=y_max, line_color="green"), 
+        dict(type="line", x0=0, x1=0, y0=0, y1=1, yref="paper",
+            line_color="green"), 
         #row="all", col=1
     )
     for x in gait_cycles:
         fig.add_shape(
-            dict(type="line", x0=x, x1=x, y0=y_min, y1=y_max, line_color="orange")
+            dict(type="line", x0=x, x1=x, y0=0, y1=1, yref="paper", 
+                line=dict(color="orange", dash="dot"))
         )
     return fig
 
@@ -187,5 +194,11 @@ def create_gait_phase_figure(angles, norm_data=None, joint='Knee'):
         template='plotly_dark',
         paper_bgcolor='rgba(0, 0, 0, 0)',
         hoverlabel_bgcolor='black',
+        legend=dict(
+            x=0.01,
+            y=0.99,
+            traceorder="normal",
+            bgcolor = 'black'
+        ),
     )
     return fig

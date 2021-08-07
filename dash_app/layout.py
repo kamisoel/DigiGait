@@ -107,14 +107,22 @@ def video_settings():
 
                     dbc.Checklist(
                         options=[
-                            {"label": "Show Gait Cycles", "value": 'show_cycles'},
-                            {"label": "Skeleton Normalization", "value": 'skel_norm'}
+                            {"label": "Show Gait Cycles", "value": "show_cycles", "label_id": "show_cycles"},
+                            {"label": "Skeleton Normalization", "value": "skel_norm", "label_id": "skel_norm"},
                         ],
                         id="option_boxes",
                         className="mb-4",
                         value=['show_cycles', 'skel_norm'],
                         inline=True,
                         switch=True,
+                    ),
+                    dbc.Tooltip(
+                        "Seperate gait cycles by vertical bars",
+                        target="show_cycles",
+                    ),
+                    dbc.Tooltip(
+                        "Normalize the bone lengths for close-up recordings",
+                        target="skel_norm",
                     ),
                     dbc.Select(
                         id = 'estimator_select',
@@ -168,6 +176,15 @@ def pose_card():
                 id="pose-loading",
                 children=dbc.Row([
                     dcc.Store(id='pose_data'),
+                    dbc.Toast(
+                        [html.P("Could not estimate pose correctly!", className="mb-0")],
+                        id="error-toast",
+                        header="Something went wrong :(",
+                        icon="danger",
+                        is_open=False,
+                        dismissable=True,
+                        style={"position": "fixed", "top": 10, "right": 10, "width": 350},
+                    ),
                     dbc.Col(
                         # 3d viewer
                         dcc.Graph(
