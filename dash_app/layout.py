@@ -199,6 +199,10 @@ def pose_card():
                                     id="angle_graph",
                                     figure=create_angle_figure(demo_angles, demo_cycles[0]),
                                     config={'displaylogo': False,
+                                            'modeBarButtonsToAdd': ['drawline',
+                                                                    'drawcircle',
+                                                                    'drawrect',
+                                                                    'eraseshape'],
                                            'scrollZoom':True},
                                 ), label='Overview',
                             ),
@@ -207,6 +211,10 @@ def pose_card():
                                     id="gait_phase_graph",
                                     figure=create_gait_phase_figure(demo_avg, norm_data),
                                     config={'displaylogo': False,
+                                            'modeBarButtonsToAdd': ['drawline',
+                                                                    'drawcircle',
+                                                                    'drawrect',
+                                                                    'eraseshape'],
                                            'scrollZoom':True},
                                 ), label='Avg. gait phase'
                             ),
@@ -227,8 +235,8 @@ norm_data = utils.get_norm_data()['Knee']
 eye = utils.get_sagital_view(demo_pose)
 
 layout = html.Div([
-    #dcc.Store(id='session', storage_type='session'),
     dcc.Store(id='video_data'),
+    dcc.Interval(id='animator', interval=1000, disabled=False),
     create_header(),
     dbc.Container([
         dbc.Row([

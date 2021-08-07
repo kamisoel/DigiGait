@@ -131,8 +131,9 @@ def create_angle_figure(angles, gait_cycles=[], joint='Knee'):
     #fig.update_yaxes(matches='y')
     fig.update_layout(
         dragmode= 'pan', 
-        xaxis=dict(range=[0,300], title='Frame'), 
-        yaxis=dict(fixedrange=True, title='Knee Extension/Flexion'),
+        xaxis=dict(range=[0,300], title='Frame', zeroline=True, 
+                    spikedash= "dash", spikecolor= "white",), 
+        yaxis=dict(fixedrange=True, title='Knee Extension/Flexion', zeroline=True),
         margin=dict(l=10, r=10, b=10, t=10),
         hovermode="x unified",
         template='plotly_dark',
@@ -140,21 +141,19 @@ def create_angle_figure(angles, gait_cycles=[], joint='Knee'):
         hoverlabel_bgcolor='black',
         legend=dict(
             x=0.01,
-            y=0.99,
+            y=0.98,
             traceorder="normal",
-            bgcolor = 'black'
+            bgcolor = 'black',
         ),
+        newshape=dict(line_color='#B2FF66', line_width=2,
+                    fillcolor='rgba(178, 255, 102, 0.5)'),
     )
-    fig.add_shape(
-        dict(type="line", x0=0, x1=0, y0=0, y1=1, yref="paper",
-            line_color="green"), 
+    fig.add_vrect(
+        x0=0, x1=15, fillcolor='grey', layer='below', opacity=0.3, line_width=0, 
         #row="all", col=1
     )
     for x in gait_cycles:
-        fig.add_shape(
-            dict(type="line", x0=x, x1=x, y0=0, y1=1, yref="paper", 
-                line=dict(color="orange", dash="dot"))
-        )
+        fig.add_vline( x=x, line_color="orange", line_dash="dot")
     return fig
 
 
@@ -162,6 +161,14 @@ def create_gait_phase_figure(angles, norm_data=None, joint='Knee'):
     names = ['Right '+joint, 'Left '+joint]
     norm_color = 'rgba(162,162,162,0.5)'
     fig = go.Figure()
+
+    for i in range(len(names)):
+        fig.add_trace(
+            go.Scatter(
+                y=angles[i], name=names[i], meta=names[i],
+                hovertemplate= '%{meta}: %{y:.1f}°<extra></extra>'
+            )
+        )
 
     if norm_data is not None:
         mean, std = norm_data
@@ -178,16 +185,10 @@ def create_gait_phase_figure(angles, norm_data=None, joint='Knee'):
             go.Scatter(y=mean, name='Norm value', meta='Norm value',
                         legendgroup='Norm', line_color=norm_color,
                         hovertemplate= '%{meta}: %{y:.1f}°<extra></extra>')),
-    for i in range(len(names)):
-        fig.add_trace(
-            go.Scatter(
-                y=angles[i], name=names[i], meta=names[i],
-                hovertemplate= '%{meta}: %{y:.1f}°<extra></extra>'
-            )
-        )
     fig.update_layout(
         dragmode= 'pan', 
-        xaxis=dict(range=[0,100], fixedrange=True, title='% Gait Cycle'), 
+        xaxis=dict(range=[0,100], fixedrange=True, title='% Gait Cycle',
+                    spikedash= "dash", spikecolor= "white",), 
         yaxis=dict(fixedrange=True, title='Avg. Knee Extension/Flexion'),
         margin=dict(l=10, r=10, b=10, t=10),
         hovermode="x unified",
@@ -200,5 +201,7 @@ def create_gait_phase_figure(angles, norm_data=None, joint='Knee'):
             traceorder="normal",
             bgcolor = 'black'
         ),
+        newshape=dict(line_color='#B2FF66', line_width=2,
+                    fillcolor='rgba(178, 255, 102, 0.5)'),
     )
     return fig

@@ -61,6 +61,29 @@ def register_callbacks(app):
         return json.dumps(click_data, indent=2)
 
 
+    app.clientside_callback(
+    """
+    function(n, angle_fig) {
+        frame = parseInt(document.querySelector('#pose_graph svg text').textContent.split(':')[1]);
+        if(angle_fig.layout.shapes[0].x1 == frame) 
+            return window.dash_clientside.no_update
+        new_angle_fig = Object.assign({}, angle_fig);
+        new_axis_pos = Math.max(0, frame-150)
+        if (new_angle_fig.layout.xaxis.range[0] < new_axis_pos || new_axis_pos == 0)
+            new_angle_fig.layout.xaxis.range = [new_axis_pos, new_axis_pos+300]
+        pos_marker = new_angle_fig.layout.shapes[0]
+        pos_marker.x0 = Math.max(0,frame-10);
+        pos_marker.x1 = frame+10;
+
+        return new_angle_fig;
+    }
+    """,
+    Output('angle_graph', 'figure'),
+    Input('animator', 'n_intervals'),
+    State('angle_graph','figure'),
+    )
+
+
     @app.callback(Output('pose_graph', 'figure'),
                   Output('angle_graph', 'figure'),
                   Output('gait_phase_graph', 'figure'),

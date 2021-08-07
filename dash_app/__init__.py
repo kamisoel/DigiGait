@@ -35,7 +35,8 @@ def register_dashapps(server):
                     assets_folder=get_root_path(__name__) + '/assets/',
                     meta_tags=[meta_viewport],
                     transforms=enrich_transforms,
-                    prevent_initial_callbacks=True,)
+                    prevent_initial_callbacks=True,
+                    update_title=None)
 
     with server.app_context():
         app.title = 'Gait Analyzer'
