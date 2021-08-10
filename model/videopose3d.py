@@ -181,7 +181,7 @@ class VideoPose3D (Estimator3D):
               kps = torch.from_numpy(kps.astype('float32'))
               if torch.cuda.is_available():
                   kps = kps.cuda()
-              predicted_3d_pos = self.model(kps).squeeze(0).detach().numpy()
+              predicted_3d_pos = self.model(kps).squeeze(0).detach().cpu().numpy()
 
               predictions[video] = self.post_process(predicted_3d_pos)
 

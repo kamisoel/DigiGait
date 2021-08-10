@@ -236,7 +236,7 @@ eye = utils.get_sagital_view(demo_pose)
 
 layout = html.Div([
     dcc.Store(id='video_data'),
-    dcc.Interval(id='animator', interval=1000, disabled=False),
+    dcc.Interval(id='animator', interval=750, disabled=False),
     create_header(),
     dbc.Container([
         dbc.Row([
