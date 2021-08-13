@@ -10,7 +10,8 @@ from data.timeseries_utils import time_normalize
 
 class GaitCycleDetector(object):
 
-    def __init__(self, pose_format='mediapipe', rnn_support=False):
+    def __init__(self, pose_format='mediapipe'):
+        self.pose_format = pose_format
         if pose_format == 'mediapipe':
             self.skel = skeletons.MediaPipeSkeleton()
             self.lfoot = self.skel.keypoint2index['left_foot_index']
@@ -32,11 +33,12 @@ class GaitCycleDetector(object):
             self.lhip = self.skel.keypoint2index['LHip']
             self.rhip = self.skel.keypoint2index['RHip']
             self.mhip = -1
-        elif pose_format == 'h36m': 
-            #left/right has to be switched..
+        elif pose_format == 'h36m':
             self.skel = H36mSkeletonHelper()
             self.lfoot = self.skel.keypoint2index['LeftAnkle']
             self.rfoot = self.skel.keypoint2index['RightAnkle']
+            self.lknee = self.skel.keypoint2index['LeftKnee']
+            self.rknee = self.skel.keypoint2index['RightKnee']
             self.lhip = self.skel.keypoint2index['LeftHip']
             self.rhip = self.skel.keypoint2index['RightHip']
             self.mhip = self.skel.keypoint2index['Hip']
@@ -101,9 +103,11 @@ class GaitCycleDetector(object):
 
     def simple_detection(self, pose, filter_sd=3, prominence=0.3, distance=25):
         norm_pose = self._norm_walking_dir(pose)
+        
+        walking_axis = 1 if pose.shape[2] == 3 else 0
 
-        filtered_rfoot = gaussian_filter1d(norm_pose[:, self.rfoot, 1], filter_sd)
-        filtered_lfoot = gaussian_filter1d(norm_pose[:, self.lfoot, 1], filter_sd)
+        filtered_rfoot = gaussian_filter1d(norm_pose[:, self.rfoot, walking_axis], filter_sd)
+        filtered_lfoot = gaussian_filter1d(norm_pose[:, self.lfoot, walking_axis], filter_sd)
 
         rhs, _ = find_peaks(filtered_rfoot, distance=distance, prominence=prominence)
         rto, _ = find_peaks(-filtered_rfoot, distance=distance, prominence=prominence)
@@ -113,13 +117,32 @@ class GaitCycleDetector(object):
 
 
     def rnn_detection(self, pose, threshold=0.7):
+        if self.pose_format != 'h36m':
+            raise ValueError('Topology {self.pose_format} is not supported for now!')
         from data.gait_event_model import GaitEventModel
+
+        n_features = 8
+        RHIP, LHIP, RKNEE, LKNEE, RANKLE, LANKLE, VRANKLE, VLANKLE = range(n_features)
+        
+        ## create features
         norm_pose = self._norm_walking_dir(pose)
 
+        features = np.zeros((len(pose), n_features, 3))
+        features[:, RHIP] = norm_pose[:, self.rhip]
+        features[:, LHIP] = norm_pose[:, self.lhip]
+        features[:, RKNEE] = norm_pose[:, self.rknee]
+        features[:, LKNEE] = norm_pose[:, self.lknee]
+        features[:, RANKLE] = norm_pose[:, self.rfoot]
+        features[:, LANKLE] = norm_pose[:, self.lfoot]
+        features[:, VRANKLE] = np.gradient(norm_pose[:, self.lfoot], axis=0)
+        features[:, VLANKLE] = np.gradient(norm_pose[:, self.lfoot], axis=0)
+        features = features.reshape(-1, n_features * 3)
+
+        ## create model
         model = GaitEventModel.load_pretrained()
         model.eval()
 
-        y_hat = torch.sigmoid(model(norm_pose)).detach().cpu().numpy()
+        y_hat = torch.sigmoid(model(features)).detach().cpu().numpy()
         y_hat[y_hat < threshold] = 0
         # peak detection?
 
