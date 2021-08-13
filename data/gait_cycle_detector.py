@@ -1,33 +1,47 @@
 import numpy as np
+import vg
 from scipy.ndimage.filters import gaussian_filter1d
 from scipy.signal import find_peaks
 from scipy.stats import iqr
 
 import data.skeleton_helper as skeletons
+from data.h36m_skeleton_helper import H36mSkeletonHelper
 from data.timeseries_utils import time_normalize
 
 class GaitCycleDetector(object):
 
-    def __init__(self, pose_format='mediapipe'):
+    def __init__(self, pose_format='mediapipe', rnn_support=False):
         if pose_format == 'mediapipe':
             self.skel = skeletons.MediaPipeSkeleton()
-            self.left_toe = self.skel.keypoint2index['left_foot_index']
-            self.right_toe = self.skel.keypoint2index['right_foot_index']
+            self.lfoot = self.skel.keypoint2index['left_foot_index']
+            self.rfoot = self.skel.keypoint2index['right_foot_index']
+            self.lhip = self.skel.keypoint2index['left_hip']
+            self.rhip = self.skel.keypoint2index['right_hip']
+            self.mhip = -1
         elif pose_format == 'openpose':
             self.skel = skeletons.OpenPoseSkeleton()
-            self.left_toe = self.skel.keypoint2index['LBigToe']
-            self.right_toe = self.skel.keypoint2index['RBigToe']
+            self.lfoot = self.skel.keypoint2index['LBigToe']
+            self.rfoot = self.skel.keypoint2index['RBigToe']
+            self.lhip = self.skel.keypoint2index['LHip']
+            self.rhip = self.skel.keypoint2index['RHip']
+            self.mhip = self.skel.keypoint2index['MidHip']
         elif pose_format == 'coco': #no foot kpts only ankle
             self.skel = skeletons.CocoSkeleton()
-            self.left_toe = self.skel.keypoint2index['LAnkle']
-            self.right_toe = self.skel.keypoint2index['RAnkle']
+            self.lfoot = self.skel.keypoint2index['LAnkle']
+            self.rfoot = self.skel.keypoint2index['RAnkle']
+            self.lhip = self.skel.keypoint2index['LHip']
+            self.rhip = self.skel.keypoint2index['RHip']
+            self.mhip = -1
         elif pose_format == 'h36m': 
-            #TODO better soluttion.. left/right has to be switched..
-            #self.skel = skeletons.H36mSkeleton()
-            self.right_toe = 6
-            self.left_toe = 3
+            #left/right has to be switched..
+            self.skel = H36mSkeletonHelper()
+            self.lfoot = self.skel.keypoint2index['LeftAnkle']
+            self.rfoot = self.skel.keypoint2index['RightAnkle']
+            self.lhip = self.skel.keypoint2index['LeftHip']
+            self.rhip = self.skel.keypoint2index['RightHip']
+            self.mhip = self.skel.keypoint2index['Hip']
         else:
-            raise ValueError('Illegal pose format')
+            raise ValueError('Illegal pose format')+delta
 
 
     def avg_gait_phase(self, data, cycles):
@@ -51,7 +65,6 @@ class GaitCycleDetector(object):
 
         lengths = cycles[1:] - cycles[:-1]
         filtered = np.where(np.abs(lengths - np.median(lengths) > 1.5 * iqr(lengths)))
-        #filtered = np.where(np.abs(lengths - np.mean(lengths) > 2*np.std(lengths)))
 
         for i in range(0, len(cycles)-1):
             if not np.isin(i, filtered):
@@ -63,37 +76,86 @@ class GaitCycleDetector(object):
         
         return splits
 
+    def _norm_walking_dir(self, pose):
+        x_axis = np.array([1,0,0])
+        z_axis = np.array([0,0,1])
+        origin = pose[:, [self.mhip]] if self.mhip != -1 else \
+                0.5 * (pose[:, [self.rhip]] + pose[:, [self.lhip]])
 
-    def heel_strike_detection(self, pose, filter_sd=5, prominence=0.01):
-        feet_dist = np.linalg.norm(pose[:, self.left_toe, -2:] - pose[:, self.right_toe, -2:],
-                              axis=1)
-        right_in_front = np.sign(pose[:, self.right_toe, -2] - pose[:, self.left_toe, -2])
+        orient = vg.angle((pose[:, self.lhip] - pose[:, self.rhip]), x_axis, look=z_axis)
+        new_pose = np.zeros_like(pose)
+        for i in range(len(pose)):
+            new_pose[i] = vg.rotate(pose[i] - origin[i], z_axis, orient[i])
+        return new_pose + origin
+
+
+    def filter_false_pos(self, cycles, knee_flex, threshold=50):
+        kept = []
+        for i in range(len(cycles)-1):
+            split = knee_flex[cycles[i]:cycles[i+1]]
+            # a flex > 50° in loading response is most likely a fp
+            if np.max(split[:len(split)//4]) < threshold:
+                kept.append(i)
+        return cycles[kept]
+
+
+    def simple_detection(self, pose, filter_sd=3, prominence=0.3, distance=25):
+        norm_pose = self._norm_walking_dir(pose)
+
+        filtered_rfoot = gaussian_filter1d(norm_pose[:, self.rfoot, 1], filter_sd)
+        filtered_lfoot = gaussian_filter1d(norm_pose[:, self.lfoot, 1], filter_sd)
+
+        rhs, _ = find_peaks(filtered_rfoot, distance=distance, prominence=prominence)
+        rto, _ = find_peaks(-filtered_rfoot, distance=distance, prominence=prominence)
+        lhs, _ = find_peaks(filtered_lfoot, distance=distance, prominence=prominence)
+        lto, _ = find_peaks(-filtered_lfoot, distance=distance, prominence=prominence)
+        return rto, rhs, lto, lhs
+
+
+    def rnn_detection(self, pose, threshold=0.7):
+        from data.gait_event_model import GaitEventModel
+        norm_pose = self._norm_walking_dir(pose)
+
+        model = GaitEventModel.load_pretrained()
+        model.eval()
+
+        y_hat = torch.sigmoid(model(norm_pose)).detach().cpu().numpy()
+        y_hat[y_hat < threshold] = 0
+        # peak detection?
+
+        rhs = np.nonzero(y_hat[:, 0])
+        lhs = np.nonzero(y_hat[:, 1])
+        rto = np.nonzero(y_hat[:, 2])
+        lto = np.nonzero(y_hat[:, 3])
+
+        return rto, rhs, lto, lhs
+
+
+
+    def heel_strike_detection(self, pose, filter_sd=5, delta=0.5):
+        """
+        pose: 2d/3d pose landmarks as (Frame, Joint, 2/3) numpy array
+        filter_sd: gaussian filter strength for smoothing the distance function
+        returns: heel strikes of right and left foot
+        """
+        if pose.shape[2] == 3:
+            pose = self._norm_walking_dir(pose)
+            right_in_front = np.sign(pose[:, self.lfoot, 1] - pose[:, self.rfoot, 1])
+        else:
+            right_in_front = np.sign(pose[:, self.rfoot, 0] - pose[:, self.lfoot, 0])
+
+        feet_dist = np.linalg.norm(pose[:, self.lfoot] - pose[:, self.rfoot], axis=1)
         filtered_dist = gaussian_filter1d(feet_dist, filter_sd)
 
-        #mins, maxs = _peakdet(filtered_dist, 0.5)
-        #return maxs[:, 0], mins[:, 0]
+        _, re_peaks = self._peakdet(filtered_dist * right_in_front, delta)
+        _, le_peaks = self._peakdet(filtered_dist * -right_in_front, delta)
+        #return just the frames of the peaks
+        return re_peaks[:,0].astype(int), le_peaks[:,0].astype(int) 
 
-        re_peaks, _ = find_peaks(filtered_dist * -right_in_front, prominence=prominence)
-        le_peaks, _ = find_peaks(filtered_dist * right_in_front, prominence=prominence)
-        return re_peaks, le_peaks
-
-
-    def simple_detection(self, pose, filter_sd=5):
-        """
-        pose: 2d/3d pose landmarks as (Frame, Joint, 2/2) numpy array
-        filter_sd: gaussian filter strength for smoothing the distance function
-        sagital_axis: axis number spcifying the sagital axis in pose
-        returns: peaks of the distance between left and right foot
-        """
-        toe_dist = np.linalg.norm(
-                    pose[:, self.left_toe, -2:] - pose[:, self.right_toe, -2:],
-                    axis=1)
-        dist_org = toe_dist * np.sign(pose[:, self.right_toe, -2] - pose[:, self.left_toe, -2])
-        filtered_dist = gaussian_filter1d(dist_org, filter_sd)
-
-        mins, maxs = self._peakdet(filtered_dist, 0.5)
-
-        return maxs[:,0].astype(np.int) #return just the frames of the peaks
+        #re_peaks, _ = find_peaks(filtered_dist * -right_in_front, prominence=prominence)
+        #le_peaks, _ = find_peaks(filtered_dist * right_in_front, prominence=prominence)
+        #return re_peaks, le_peaks
+        
 
 
     # Peak detection script converted from MATLAB script

@@ -42,6 +42,8 @@ def random_upload_url(mkdir=False):
         url.mkdir(parents=True, exist_ok=True)
     return url
 
+def calc_metrics(knee_angles, gait_events):
+    pass
 
 def get_demo_data():
     demo_path = Path(DashConfig.DEMO_DATA) / 'demo_data.npz'
@@ -138,10 +140,14 @@ def run_estimation(video_path, video_range=None,
         pose_3d = estimator_3d.estimate(keypoints, meta)
         pose_3d = next(iter(pose_3d.values()))
 
-        rcycles, lcycles = phase_detector.heel_strike_detection(pose_3d)
-
         angles = calc_common_angles(pose_3d, clinical=True)
         knee_angles = np.stack([angles['RKnee'], angles['LKnee']], axis=-1)
+        if ops['debias']:
+            knee_angles *= 1.2
+
+        rcycles, lcycles = phase_detector.heel_strike_detection(pose_3d)
+        rcycles = phase_detector.filter_false_pos(rcycles, angles['RKnee'])
+        lcycles = phase_detector.filter_false_pos(lcycles, angles['LKnee'])
 
         #skeleton_helper = H36mSkeletonHelper()
         #angles = skeleton_helper.pose2euler(pose_3d)

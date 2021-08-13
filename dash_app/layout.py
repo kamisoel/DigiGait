@@ -108,6 +108,7 @@ def video_settings():
                     dbc.Checklist(
                         options=[
                             {"label": "Show Gait Cycles", "value": "show_cycles", "label_id": "show_cycles"},
+                            {"label": "Debias", "value": "debias", "label_id": "debias"},
                             {"label": "Skeleton Normalization", "value": "skel_norm", "label_id": "skel_norm"},
                         ],
                         id="option_boxes",
@@ -119,6 +120,11 @@ def video_settings():
                     dbc.Tooltip(
                         "Seperate gait cycles by vertical bars",
                         target="show_cycles",
+                    ),
+                    dbc.Tooltip(
+                        "Correct the systematic underestimation of the angle "
+                        "by introducing a scale factor of 1.2 ",
+                        target="debias",
                     ),
                     dbc.Tooltip(
                         "Normalize the bone lengths for close-up recordings",

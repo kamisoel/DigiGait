@@ -25,7 +25,7 @@ class VideoPose3D (Estimator3D):
     CKPT_FILE_OP = 'model/checkpoints/pretrained_video2bvh.pth'
 
 
-    def __init__(self, openpose=False, use_hfr=True, normalized_skeleton=True):
+    def __init__(self, openpose=False, use_hfr=True, normalized_skeleton=False):
         if openpose:
             if not Path(self.CKPT_FILE_OP).exists():
                 self.download_openpose_weights()
