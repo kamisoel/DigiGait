@@ -49,35 +49,31 @@ def get_demo_data():
     demo_path = Path(DashConfig.DEMO_DATA) / 'demo_data.npz'
     demo_data = np.load(demo_path, allow_pickle=True)
     demo_pose = demo_data['pose_3d']
-    demo_angles = np.stack([demo_data['rknee_angle'], demo_data['lknee_angle']], axis=-1)
-    gait_cycles = (demo_data['rcycles'], demo_data['lcycles'])
+    demo_angles = 1.25 * np.stack([demo_data['rknee_angle'], demo_data['lknee_angle']], axis=-1)
+    gait_cycles = (demo_data['rcycles'], demo_data['lcycles'], None, None)
     return demo_pose, demo_angles, gait_cycles
 
 
-def avg_gait_phase(angles, cycles):
+def avg_gait_phase(angles, events):
     gcd = GaitCycleDetector()
-    if isinstance(cycles, tuple):
-        r_normed_phases = gcd.normed_gait_phases(angles[:,0], cycles[0])
-        l_normed_phases = gcd.normed_gait_phases(angles[:,1], cycles[1])
-        r_mean = np.mean(r_normed_phases[:5], axis=0)
-        l_mean = np.mean(l_normed_phases[:5], axis=0)
-        return r_mean, l_mean
-
-    normed_phases = gcd.normed_gait_phases(angles, cycles)
-    # use average of first five steps
-    mean_phase = np.mean(normed_phases[:5], axis=0)
-    return mean_phase[:,0], mean_phase[:,1]
+    rhs, lhs, _, _ = events
+    r_normed_phases = gcd.normed_gait_phases(angles[:,0], rhs)
+    l_normed_phases = gcd.normed_gait_phases(angles[:,1], lhs)
+    r_mean = np.mean(r_normed_phases[:5], axis=0)
+    l_mean = np.mean(l_normed_phases[:5], axis=0)
+    return r_mean, l_mean
 
 
-def get_norm_data(clinical=True):
-    norm_path = Path(DashConfig.DEMO_DATA) / 'norm_knee.npz'
-    norm_data = np.load(norm_path)
-    mean = np.rad2deg(norm_data['mean'])
-    std = np.rad2deg(norm_data['std'])
-    if not clinical:
-        mean = 180 - mean
-        std = 180 - std
-    return dict(Knee=(mean, std))
+def get_norm_data(name='overground', joint=None, clinical=True):
+    norm_path = Path(DashConfig.DEMO_DATA) / 'norm_data.npz'
+    data = np.load(norm_path)
+    keys = data['keys'].tolist() #index of key gives pos of joint
+    norm_values = {}
+    for i, k in enumerate(keys):
+        norm_values[k] = data[name][:, i]
+        if not clinical:
+            norm_values[k] = 180 - norm_values[k]
+    return norm_values
 
 def get_sagital_view(pose_3d):
     RHip, LHip = 1, 4
@@ -109,7 +105,7 @@ def run_estimation_file(video_name='video.mp4', bbox_name='bboxes.npy',
 
 def run_estimation(video_path, video_range=None, 
                     pipeline='Mediapipe + VideoPose3D',
-                    ops=defaultdict):
+                    detection='auto', ops=defaultdict):
     with Video(video_path) as video:
 
         start, end = map(lambda x: int(x*video.fps), video_range)
@@ -120,20 +116,20 @@ def run_estimation(video_path, video_range=None,
             from model.lpn_estimator_2d import LPN_Estimator2D
             estimator_2d = LPN_Estimator2D()
             estimator_3d = VideoPose3D(normalized_skeleton=ops['skel_norm'])
-            #phase_detector = GaitCycleDetector(pose_format='coco')
+            #gcd = GaitCycleDetector(pose_format='coco')
         elif pipeline == 'mp_nf': #'MediaPipe + VideoPose3D (w/o feet)':
             from model.mediapipe_estimator import MediaPipe_Estimator2D
             estimator_2d = MediaPipe_Estimator2D(out_format='coco')
             estimator_3d = VideoPose3D(normalized_skeleton=ops['skel_norm'])
-            #phase_detector = GaitCycleDetector(pose_format='coco')
+            #gcd = GaitCycleDetector(pose_format='coco')
         elif pipeline == 'mp_wf': #'MediaPipe + VideoPose3D (w/ feet)':
             from model.mediapipe_estimator import MediaPipe_Estimator2D
             estimator_2d = MediaPipe_Estimator2D(out_format='openpose')
             estimator_3d = VideoPose3D(openpose=True, normalized_skeleton=ops['skel_norm'])
-            #phase_detector = GaitCycleDetector(pose_format='openpose')
+            #gcd = GaitCycleDetector(pose_format='openpose')
         else:
             raise ValueError('Invalid Pipeline: ', pipeline)
-        phase_detector = GaitCycleDetector(pose_format='h36m')
+        gcd = GaitCycleDetector(pose_format='h36m')
         
         keypoints, meta = estimator_2d.estimate(video)
         pose_2d = keypoints['video']['custom'][0]
@@ -143,15 +139,13 @@ def run_estimation(video_path, video_range=None,
         angles = calc_common_angles(pose_3d, clinical=True)
         knee_angles = np.stack([angles['RKnee'], angles['LKnee']], axis=-1)
         if ops['debias']:
-            knee_angles *= 1.2
+            knee_angles *= 1.25
 
-        rcycles, lcycles = phase_detector.heel_strike_detection(pose_3d)
-        rcycles = phase_detector.filter_false_pos(rcycles, angles['RKnee'])
-        lcycles = phase_detector.filter_false_pos(lcycles, angles['LKnee'])
+        gait_events = gcd.detect(pose_3d, mode=detection)
 
         #skeleton_helper = H36mSkeletonHelper()
         #angles = skeleton_helper.pose2euler(pose_3d)
         #knee_angles = {k: v[:,1] for k, v in angles.items() if k.endswith('Knee')}
 
-        return pose_3d, knee_angles, (rcycles, lcycles)
+        return pose_3d, knee_angles, gait_events
 

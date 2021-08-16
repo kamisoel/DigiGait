@@ -13,7 +13,7 @@ def frame_args(duration, redraw=True, transition=False):
         }
 
 def create_skeleton_fig(pose_3d, skeleton=None, joints=None, 
-                        eye=None, fps=50, height=500):
+                        eye=None, fps=50, height=550):
     if skeleton is None:
         skeleton = [-1,  0,  1,  2,  0,  4,  5,  0, \
                      7,  8,  9,  8, 11, 12,  8, 14, 15]
@@ -64,7 +64,7 @@ def create_skeleton_fig(pose_3d, skeleton=None, joints=None,
         },
         "pad": {"b": 10, "t": 15},
         "len": 0.7,
-        "x": 0.25,
+        "x": 0.2,
         "y": 0,
         "steps": [{
             "args": [
@@ -72,7 +72,7 @@ def create_skeleton_fig(pose_3d, skeleton=None, joints=None,
             ],
             "label": frame,
             "method": "animate"}
-        for frame in range(0, len(pose_3d)+1, fps//2)]
+        for frame in range(0, len(pose_3d)+1, 10)]
     }
 
     layout=go.Layout(
@@ -171,9 +171,10 @@ def create_gait_phase_figure(angles, norm_data=None, joint='Knee'):
         )
 
     if norm_data is not None:
-        mean, std = norm_data
-        min_norm = mean - 2 * std
-        max_norm = mean + 2 * std
+        mean = norm_data[:, 0]
+        std = norm_data[:, 1]
+        min_norm = mean - std
+        max_norm = mean + std
         x = np.arange(len(mean))
         fig.add_trace(
             go.Scatter( x=np.concatenate([x, x[::-1]]), 

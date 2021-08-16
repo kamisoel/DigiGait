@@ -54,26 +54,44 @@ def register_callbacks(app):
         return False
 
 
-    @app.callback(#Output('skel_graph', 'figure'),
-                  Output('console', 'children'),
-                  Input('angle_graph', 'clickData'))
-    def show_frame(click_data):
-        return json.dumps(click_data, indent=2)
+    @app.callback(Output('animator', 'disabled'),
+                  Input('autoscroll', 'checked'))
+    def toggle_autoscroll(c):
+        return not c
+
+
+    @app.callback(Output('advanced_options', 'is_open'),
+                  Output('options_btn', 'children'),
+                  Trigger('options_btn', 'n_clicks'),
+                  State('advanced_options', 'is_open'),
+                  )
+    def toggle_advanced_options(is_open):
+        if is_open:
+            return False, "► Advanced options"
+        else:
+            return True, "▼ Advanced options"
 
 
     app.clientside_callback(
     """
     function(n, angle_fig) {
+        // check if a video is analyzed at the moment (don't update then)
+        is_loading = document.querySelector('#pose_card .card-body div').style.visibility == 'hidden'
+        if(is_loading)
+            return window.dash_clientside.no_update;
+        // get current frame by reading the counter next to the slider
         frame = parseInt(document.querySelector('#pose_graph svg text').textContent.split(':')[1]);
+        // don't update if it's the same frame
         if(angle_fig.layout.shapes[0].x1 == frame) 
-            return window.dash_clientside.no_update
+            return window.dash_clientside.no_update;
+        // update position marker and move view if necessary
         new_angle_fig = Object.assign({}, angle_fig);
         new_axis_pos = Math.max(0, frame-150)
         if (new_angle_fig.layout.xaxis.range[0] < new_axis_pos || new_axis_pos == 0)
             new_angle_fig.layout.xaxis.range = [new_axis_pos, new_axis_pos+300]
         pos_marker = new_angle_fig.layout.shapes[0]
-        pos_marker.x0 = Math.max(0,frame-10);
-        pos_marker.x1 = frame+10;
+        pos_marker.x0 = Math.max(0,frame-5);
+        pos_marker.x1 = frame+5;
 
         return new_angle_fig;
     }
@@ -92,15 +110,17 @@ def register_callbacks(app):
     def update_figures(data, options):
         pose_3d = data['pose']
         knee_angles = data['angles']
-        gait_cycles = data['rcycles']
-        avg_gait_phase = data['avg_phase']
-        norm_data = data['norm_data']
+        events = data['events']
+        rhs = events[0]
+        
+        norm_data = utils.get_norm_data('overground')['KneeZ']
+        avg_gait_phase = utils.avg_gait_phase(knee_angles, events)
 
         eye = utils.get_sagital_view(pose_3d)
         skel_fig = figures.create_skeleton_fig(pose_3d, eye=eye)
         if 'show_cycles' not in options:
-            gait_cycles = []
-        ang_fig = figures.create_angle_figure(knee_angles, gait_cycles)
+            rhs = []
+        ang_fig = figures.create_angle_figure(knee_angles, rhs)
         gait_phase_fig = figures.create_gait_phase_figure(
                             avg_gait_phase, norm_data)
         return skel_fig, ang_fig, gait_phase_fig
@@ -112,19 +132,18 @@ def register_callbacks(app):
                   State('video_data', 'data'),
                   State('video_range', 'value'),
                   State('estimator_select', 'value'),
+                  State('event_detection_select', 'value'),
                   State('option_boxes','value'),
                   )
-    def analyze_clicked(video_content, slider_value, pipeline, options):
+    def analyze_clicked(video_content, slider_value, pipeline, detection, options):
         try:
             #upload_dir = session_data['upload_dir']
             video_path = utils.memory_file(video_content)
             ops = defaultdict(bool, {k: (k in options) for k in options})
-            pose_3d, knee_angles, gait_cycles = utils.run_estimation(video_path, slider_value, pipeline, ops)
-            avg_gait_phase = utils.avg_gait_phase(knee_angles, gait_cycles)
+            pose_3d, knee_angles, events = utils.run_estimation(video_path, slider_value, pipeline, detection, ops)
 
-            norm_data = utils.get_norm_data()['Knee']
-            return dict(pose=pose_3d, angles=knee_angles, rcycles=gait_cycles[0], lcycles=gait_cycles[1],
-                        avg_phase=avg_gait_phase, norm_data=norm_data), no_update
+            return dict(pose=pose_3d, angles=knee_angles, events=events), False
         except Exception as e:
+            raise
             return no_update, True
 

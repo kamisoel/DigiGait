@@ -105,47 +105,70 @@ def video_settings():
                         className="mb-4",
                     ),
 
-                    dbc.Checklist(
-                        options=[
-                            {"label": "Show Gait Cycles", "value": "show_cycles", "label_id": "show_cycles"},
-                            {"label": "Debias", "value": "debias", "label_id": "debias"},
-                            {"label": "Skeleton Normalization", "value": "skel_norm", "label_id": "skel_norm"},
-                        ],
-                        id="option_boxes",
-                        className="mb-4",
-                        value=['show_cycles', 'skel_norm'],
-                        inline=True,
-                        switch=True,
+                    dbc.Button("►Advanced options", id='options_btn'),
+
+                    dbc.Collapse(
+                        dbc.Col([
+                            dbc.Label("Pipeline", html_for="estimator_select"),
+                            dbc.Select(
+                                id = 'estimator_select',
+                                options=[
+                                    {"label": "LPN + VideoPose3D", "value": 'lpn'},
+                                    {"label": "MediaPipe + VideoPose3D (w/o feet)", "value": 'mp_nf'},
+                                    #{"label": "MediaPipe + VideoPose3D (w/ feet)", "value": 'mp_wf', "disabled":True},
+                                ],
+                                value = 'mp_nf',
+                                className="mb-4",
+                            ),
+                            dbc.Label("Event detection algorithm", html_for="event_detection_select"),
+                            dbc.Select(
+                                id = 'event_detection_select',
+                                options=[
+                                    {"label": "Auto", "value": 'Auto'},
+                                    {"label": "Recurrent Neural Network", "value": 'rnn'},
+                                    {"label": "Foot velocity algorithm (FVA)", "value": 'fva'},
+                                    {"label": "Foot displacement algorithm", "value": 'simple'},
+                                    {"label": "Horizontal Heel Displacement (HHD)", "value": 'hhd'},
+                                ],
+                                value = 'mp_nf',
+                                className="mb-4",
+                            ),
+                            dbc.Checklist(
+                                options=[
+                                    {"label": "Show Cycles", "value": "show_cycles", "label_id": "show_cycles"},
+                                    {"label": "Debias", "value": "debias", "label_id": "debias"},
+                                    {"label": "Skeleton Normalization", "value": "skel_norm", "label_id": "skel_norm"},
+                                ],
+                                id="option_boxes",
+                                className="mb-4",
+                                value=['show_cycles','debias'],
+                                inline=True,
+                                switch=True,
+                            ),
+                        ]),
+                        id="advanced_options",
+                        is_open=False,
                     ),
                     dbc.Tooltip(
-                        "Seperate gait cycles by vertical bars",
+                        "Show separation lines for the begining of each gait cycle",
                         target="show_cycles",
                     ),
                     dbc.Tooltip(
                         "Correct the systematic underestimation of the angle "
-                        "by introducing a scale factor of 1.2 ",
+                        "by introducing a scale factor of 1.25",
                         target="debias",
                     ),
                     dbc.Tooltip(
                         "Normalize the bone lengths for close-up recordings",
                         target="skel_norm",
                     ),
-                    dbc.Select(
-                        id = 'estimator_select',
-                        options=[
-                            {"label": "LPN + VideoPose3D", "value": 'lpn'},
-                            {"label": "MediaPipe + VideoPose3D (w/o feet)", "value": 'mp_nf'},
-                            #{"label": "MediaPipe + VideoPose3D (w/ feet)", "value": 'mp_wf', "disabled":True},
-                        ],
-                        value = 'mp_nf',
-                        className="mb-4",
-                    ),
-                    dbc.NavLink(
-                        dbc.Button("Analyze!", id='analyze_btn',
-                               color='primary', disabled=True),
-                        href="#pose_card", external_link=True
-                    ),
-                    html.Pre(id='console')
+
+                    dbc.Row(
+                        dbc.NavLink(
+                            dbc.Button("Analyze!", id='analyze_btn',
+                                   color='primary', disabled=True),
+                            href="#pose_card", external_link=True
+                        ), justify='end'),
                 ], className="mb-4",)
             ]),
         ],
@@ -171,6 +194,27 @@ def video_preview():
         ]
     )
 
+def overview_settings():
+    return html.Div([
+        html.Div([
+                dbc.Checkbox(
+                    id="autoscroll", className="custom-control-input",
+                    checked=True
+                ),
+                dbc.Label(
+                    "Autoscroll",  html_for="autoscroll",
+                    className="custom-control-label",
+                ),
+                dbc.Tooltip(
+                    "Automatic scroll the graph position to the frame of the 3D viewer",
+                    target="autoscroll",
+                ),
+            ],
+            className='custom-switch custom-control custom-control-inline',
+        )
+
+    ], className='mb-4',)
+
 
 def pose_card():
 
@@ -189,7 +233,7 @@ def pose_card():
                         icon="danger",
                         is_open=False,
                         dismissable=True,
-                        style={"position": "fixed", "top": 10, "right": 10, "width": 350},
+                        style={"position": "fixed", "top": 60, "right": 10, "width": 350},
                     ),
                     dbc.Col(
                         # 3d viewer
@@ -201,16 +245,19 @@ def pose_card():
                     dbc.Col(
                         dbc.Tabs([
                             dbc.Tab(
-                                dcc.Graph(
-                                    id="angle_graph",
-                                    figure=create_angle_figure(demo_angles, demo_cycles[0]),
-                                    config={'displaylogo': False,
-                                            'modeBarButtonsToAdd': ['drawline',
-                                                                    'drawcircle',
-                                                                    'drawrect',
-                                                                    'eraseshape'],
-                                           'scrollZoom':True},
-                                ), label='Overview',
+                                html.Div([
+                                    dcc.Graph(
+                                        id="angle_graph",
+                                        figure=create_angle_figure(demo_angles, demo_events[0]),
+                                        config={'displaylogo': False,
+                                                'modeBarButtonsToAdd': ['drawline',
+                                                                        'drawcircle',
+                                                                        'drawrect',
+                                                                        'eraseshape'],
+                                               'scrollZoom':True},
+                                    ),
+                                    overview_settings(),
+                                ]), label='Overview',
                             ),
                             dbc.Tab(
                                 dcc.Graph(
@@ -235,14 +282,14 @@ def pose_card():
 
 # LAYOUT
 #=======
-demo_pose, demo_angles, demo_cycles = utils.get_demo_data()
-demo_avg = utils.avg_gait_phase(demo_angles, demo_cycles)
-norm_data = utils.get_norm_data()['Knee']
+demo_pose, demo_angles, demo_events = utils.get_demo_data()
+demo_avg = utils.avg_gait_phase(demo_angles, demo_events)
+norm_data = utils.get_norm_data()['KneeZ']
 eye = utils.get_sagital_view(demo_pose)
 
 layout = html.Div([
     dcc.Store(id='video_data'),
-    dcc.Interval(id='animator', interval=750, disabled=False),
+    dcc.Interval(id='animator', interval=500, disabled=False),
     create_header(),
     dbc.Container([
         dbc.Row([

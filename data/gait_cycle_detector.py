@@ -79,16 +79,30 @@ class GaitCycleDetector(object):
         return splits
 
     def _norm_walking_dir(self, pose):
-        x_axis = np.array([1,0,0])
-        z_axis = np.array([0,0,1])
-        origin = pose[:, [self.mhip]] if self.mhip != -1 else \
-                0.5 * (pose[:, [self.rhip]] + pose[:, [self.lhip]])
+        if pose.shape[-1] == 2: # in 2D make sure movement is from left to right
+            pelvis = 0.5 * (pose[:, self.rhip] + pose[:, self.lhip])
+            v_pelvis = np.gradient(pelvis[..., 0]) # get movement speed
+            # caculate running mean to keep 'direction' while turning
+            N = 10
+            cumsum = np.cumsum(np.insert(v_pelvis, 0, 0)) 
+            running_mean = (cumsum[N:] - cumsum[:-N]) / float(N)
+            # use the sign of the speed as movement direction and pad edges
+            walking_dir = np.pad(np.sign(running_mean), N//2, mode='edge')
+            pose = pose.copy()
+            pose[...,1] *= walking_dir
+            return pose
 
-        orient = vg.angle((pose[:, self.lhip] - pose[:, self.rhip]), x_axis, look=z_axis)
-        new_pose = np.zeros_like(pose)
-        for i in range(len(pose)):
-            new_pose[i] = vg.rotate(pose[i] - origin[i], z_axis, orient[i])
-        return new_pose + origin
+        elif pose.shape[-1] == 3: # in 3D keep hip parallel to the x-axis
+            x_axis = np.array([1,0,0])
+            z_axis = np.array([0,0,1])
+            origin = pose[:, [self.mhip]] if self.mhip != -1 else \
+                    0.5 * (pose[:, [self.rhip]] + pose[:, [self.lhip]])
+
+            orient = vg.angle((pose[:, self.lhip] - pose[:, self.rhip]), x_axis, look=z_axis)
+            new_pose = np.zeros_like(pose)
+            for i in range(len(pose)):
+                new_pose[i] = vg.rotate(pose[i] - origin[i], z_axis, orient[i])
+            return new_pose + origin
 
 
     def filter_false_pos(self, cycles, knee_flex, threshold=50):
@@ -100,20 +114,105 @@ class GaitCycleDetector(object):
                 kept.append(i)
         return cycles[kept]
 
+    def detect(self, pose, mode='auto', **kwargs):
+        if mode == 'auto':
+            return self.combined_detection(pose, **kwargs)
+        elif mode == 'rnn':
+            return self.rnn_detection(pose, **kwargs)
+        elif mode == 'fva':
+            return self.fva_detection(pose, **kwargs)
+        elif mode == 'hhd':
+            return self.hhd_detection(pose, **kwargs)
+        elif mode == 'simple':
+            return self.simple_detection(pose, **kwargs)
+        else:
+            raise ValueError('Unknow detection mode!')
 
-    def simple_detection(self, pose, filter_sd=3, prominence=0.3, distance=25):
-        norm_pose = self._norm_walking_dir(pose)
-        
-        walking_axis = 1 if pose.shape[2] == 3 else 0
 
-        filtered_rfoot = gaussian_filter1d(norm_pose[:, self.rfoot, walking_axis], filter_sd)
-        filtered_lfoot = gaussian_filter1d(norm_pose[:, self.lfoot, walking_axis], filter_sd)
+    def combined_detection(self, pose, filter_sd=5, tolerance=25):
+        # use foot displacement algorithm as basis
+        rhs, lhs, rto, lto = self.simple_detection(pose, filter_sd)
+        # use hhd algorithm for better HS detection
+        rhs2, lhs2 = self.hhd_detection(pose, filter_sd)
+        # use fva algorithm for better TO detection
+        _, _, rto2, lto2 = self.fva_detection(pose, filter_sd)
 
-        rhs, _ = find_peaks(filtered_rfoot, distance=distance, prominence=prominence)
-        rto, _ = find_peaks(-filtered_rfoot, distance=distance, prominence=prominence)
-        lhs, _ = find_peaks(filtered_lfoot, distance=distance, prominence=prominence)
-        lto, _ = find_peaks(-filtered_lfoot, distance=distance, prominence=prominence)
-        return rto, rhs, lto, lhs
+        rhs = self._align_event_detections(rhs, rhs2, 'mean', tolerance, keep='left')
+        lhs = self._align_event_detections(lhs, lhs2, 'mean', tolerance, keep='left')
+        rto = self._align_event_detections(rto, rto2, 'mean', tolerance, keep='left')
+        lto = self._align_event_detections(lto, lto, 'mean', tolerance, keep='left')
+
+        return np.round(rhs), np.round(lhs), np.round(rto), np.round(lto)
+
+
+    def fva_detection(self, pose, filter_sd=5):
+        """
+        Foot velocity algorithm by O'Connor et al. (2007)
+        """
+
+        # finds heelstrike (hs) and toe off (to) from vertical position and velocity
+        def _detect(vertical_foot_pos):
+            # use finite estimate to calculate velocity
+            foot_vel = np.gradient(vertical_foot_pos)
+            # filter the curve using a gaussian kernel 
+            filtered_foot_vel = gaussian_filter1d(foot_vel, filter_sd)
+
+            # find minima and maxima
+            # all significant local minima
+            hs, i = find_peaks(-filtered_foot_vel, height=-filtered_foot_vel.min()/10)
+            # only the 'global' maxima
+            to, _ = find_peaks(filtered_foot_vel, height=filtered_foot_vel.max()/2)
+            if hs.size != 0:
+                # "exclude the major trough in the foot velocity signal which occurs during the swing phase of gait"
+                ground_dist = vertical_foot_pos - vertical_foot_pos.min(axis=0)
+                close_to_ground = ground_dist < 0.35 * np.ptp(vertical_foot_pos)
+                hs = hs[close_to_ground[hs]]
+            return hs, to
+    
+        if pose.shape[-1] == 3: # if 3D
+            pose = self._norm_walking_dir(pose)
+        rhs, rto = _detect(pose[:, self.rfoot, -1])
+        lhs, lto = _detect(pose[:, self.lfoot, -1])
+        return rhs, lhs, rto, lto
+
+
+    def hhd_detection(self, pose, filter_sd=5, delta=0.5):
+        """
+        Heel strike detection using the Horizontal Heel Distance (HHD) 
+        algorithm by Banks et al. (2015)
+        """
+        pose = self._norm_walking_dir(pose)
+        rheel, lheel = pose[:, self.rfoot, -2:], pose[:, self.lfoot, -2:] #ignore x-axis in 3D
+        feet_dist = np.linalg.norm(rheel - lheel, axis=1) # horizontal heel distance
+        is_right = np.sign(rheel[:, 0]) # right foot in front of pelvis
+        filtered_dist = gaussian_filter1d(feet_dist * is_right, filter_sd)
+
+        mins, maxs = self._peakdet(filtered_dist, 0.05) # get turning points aka peaks of the gradient
+        rhs = mins[:, 0] if mins.size!= 0 else []
+        lhs = maxs[:, 0] if maxs.size!= 0 else []
+        return rhs, lhs
+
+
+    def simple_detection(self, pose, filter_sd=3, delta=0.25):
+        """
+        simple foot displacement based algorithm for event detection on treatmills
+        based on Zeni et al. (2008)
+        """
+        def _detect(heel_pos):
+            y_pos = gaussian_filter1d(heel_pos[:, 0], filter_sd)
+            #z_pos = heel_pos[:, 1]
+            #ground_dist = z_pos - z_pos.min(axis=0)
+            #close_to_ground = ground_dist < 0.35 * np.ptp(z_pos)
+            to, hs = self._peakdet(y_pos, delta)
+
+            hs = hs[:, 0] if hs.size!= 0 else []
+            to = to[:, 0] if to.size!= 0 else []
+            return hs, to
+    
+        pose = self._norm_walking_dir(pose)
+        rto, rhs = _detect(pose[:, self.rfoot, -2:])
+        lto, lhs = _detect(pose[:, self.lfoot, -2:])
+        return rhs, lhs, rto, lto
 
 
     def rnn_detection(self, pose, threshold=0.7):
@@ -152,33 +251,61 @@ class GaitCycleDetector(object):
         lto = np.nonzero(y_hat[:, 3])
 
         return rto, rhs, lto, lhs
+   
 
 
-
-    def heel_strike_detection(self, pose, filter_sd=5, delta=0.5):
+    def _align_event_detections(self, left, right, f='mean', tolerance=5, keep='none'):
         """
-        pose: 2d/3d pose landmarks as (Frame, Joint, 2/3) numpy array
-        filter_sd: gaussian filter strength for smoothing the distance function
-        returns: heel strikes of right and left foot
+        align elements of A and B by nearest neighbor with distance <= tolerance
+        f is used to aggregate paired elements
+        unpaired elements can be kept or ignored
+        left: list of values, must be iterable and sorted
+        right: list of values, must be iterable and sorted
+        f: String ('mean', 'min', 'max', 'zip') for common function or custom function for aggregating pairs
+        tolerance: maximum distance to be counted as pair
+        keep: decides which unpaired values to keep; can be 'none', 'left', 'right' or 'both'
+        returns: list of paired and aggregated values and kept unpaired one
         """
-        if pose.shape[2] == 3:
-            pose = self._norm_walking_dir(pose)
-            right_in_front = np.sign(pose[:, self.lfoot, 1] - pose[:, self.rfoot, 1])
-        else:
-            right_in_front = np.sign(pose[:, self.rfoot, 0] - pose[:, self.lfoot, 0])
+        A = iter(left)
+        B = iter(right)
+        C = []
 
-        feet_dist = np.linalg.norm(pose[:, self.lfoot] - pose[:, self.rfoot], axis=1)
-        filtered_dist = gaussian_filter1d(feet_dist, filter_sd)
-
-        _, re_peaks = self._peakdet(filtered_dist * right_in_front, delta)
-        _, le_peaks = self._peakdet(filtered_dist * -right_in_front, delta)
-        #return just the frames of the peaks
-        return re_peaks[:,0].astype(int), le_peaks[:,0].astype(int) 
-
-        #re_peaks, _ = find_peaks(filtered_dist * -right_in_front, prominence=prominence)
-        #le_peaks, _ = find_peaks(filtered_dist * right_in_front, prominence=prominence)
-        #return re_peaks, le_peaks
-        
+        try:
+            a = next(A)
+            b = next(B)
+            while True:
+                if abs(a-b) <= tolerance:
+                    if f == 'mean':
+                        C.append((a+b)/2)
+                    elif f == 'min':
+                        C.append(min(a,b))
+                    elif f == 'max':
+                        C.append(max(a,b))
+                    elif f == 'zip':
+                        C.append([a,b])
+                    elif callable(f):
+                        C.append(f(a,b))
+                    a = next(A)
+                    b = next(B)
+                elif a <= b:
+                    if keep == 'left' or keep == 'both':
+                        C.append(a)
+                    a = next(A)
+                else:
+                    if keep == 'right' or keep == 'both':
+                        C.append(b)
+                    b = next(B)
+        except StopIteration:
+            pass
+        # one of the iterators may have leftover elements
+        for a in A:
+            if keep == 'left' or keep == 'both':
+                C.append(a)
+        for b in B:
+            if keep == 'right' or keep == 'both':
+                C.append(b)
+        return np.array(C)
+     
 
 
     # Peak detection script converted from MATLAB script

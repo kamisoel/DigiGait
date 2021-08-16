@@ -11,7 +11,7 @@ def gauss_filter(data, sd=1):
     return np.apply_along_axis(lambda x: gaussian_filter1d(x,sd),
                                arr = data, axis = 0)
 
-def time_normalize(y, steps=100):
+def time_normalize(y, steps=101):
     x = np.linspace(0, 1, len(y))
     new_x = np.linspace(0, 1, steps)
     if y.ndim > 1:
