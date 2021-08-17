@@ -1,5 +1,6 @@
 import torch
 from torch import nn
+import numpy as np
 from pathlib import Path
 from google_drive_downloader import GoogleDriveDownloader as gdd
 
@@ -28,18 +29,33 @@ class GaitEventModel(nn.Module):
 
         return out
 
+    def predict(self, x, threshold=0.1):
+        self.eval()
+        x = np.roll(np.flip(x, axis=-1), 2, axis=-1)
+        x = torch.Tensor(x)
+        if x.dim() == 2:
+            x = x.view(1, x.shape[0], x.shape[1])
+        y_hat = torch.sigmoid(self.forward(x))
+        y_hat = y_hat.detach().cpu().numpy()
+        y_hat[y_hat < threshold] = 0
+        # TODO: peakdetection
+
+        return y_hat
+
 
     @staticmethod
     def load_pretrained(device='cpu'):
         PRETRAINED_GID = '1WaA6JlarrVvN4kQtXtdRA3JSXQMaIiRL'
-        CKPT_FILE = Path('model/checkpoint/gait_event_rnn.pth')
+        CKPT_FILE = Path('model/checkpoints/gait_event_rnn_2_128.pth')
 
         if not CKPT_FILE.exists():
             # download pretrained weights
-            gdd.download_file_from_google_drive(self.PRETRAINED_GID, self.CKPT_FILE)
+            gdd.download_file_from_google_drive(PRETRAINED_GID, CKPT_FILE)
 
+        device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
         model = GaitEventModel(24, 4, hidden_dim=128, n_layers=2, dropout=0.15, bidirectional=True)
-        model.load_state_dict(torch.load(CKPT_FILE)) #TODO load to device
+        model.to(device)
+        model.load_state_dict(torch.load(CKPT_FILE, map_location=device))
 
         return model
 

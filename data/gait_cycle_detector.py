@@ -6,7 +6,7 @@ from scipy.stats import iqr
 
 import data.skeleton_helper as skeletons
 from data.h36m_skeleton_helper import H36mSkeletonHelper
-from data.timeseries_utils import time_normalize
+from data.timeseries_utils import time_normalize, peakdet, align_values
 
 class GaitCycleDetector(object):
 
@@ -44,16 +44,6 @@ class GaitCycleDetector(object):
             self.mhip = self.skel.keypoint2index['Hip']
         else:
             raise ValueError('Illegal pose format')+delta
-
-
-    def avg_gait_phase(self, data, cycles):
-        """
-        data: landmark positions or joint angles as (Frame, Joint, X) numpy array
-        peaks: start of the gait cycles, e.g. return value of simple_detection
-        return: 
-        """
-        split_norm = self.normed_gait_phases(data, cycles)
-        return np.mean(split_norm, axis=0), np.std(split_norm, axis=0)
     
 
     def normed_gait_phases(self, data, cycles):
@@ -66,7 +56,7 @@ class GaitCycleDetector(object):
         cycles = cycles.astype(int)
 
         lengths = cycles[1:] - cycles[:-1]
-        filtered = np.where(np.abs(lengths - np.median(lengths) > 1.5 * iqr(lengths)))
+        filtered = np.where(np.abs(lengths - np.median(lengths)) > 1.5 * iqr(lengths))
 
         for i in range(0, len(cycles)-1):
             if not np.isin(i, filtered):
@@ -122,14 +112,14 @@ class GaitCycleDetector(object):
         elif mode == 'fva':
             return self.fva_detection(pose, **kwargs)
         elif mode == 'hhd':
-            return self.hhd_detection(pose, **kwargs)
+            return *self.hhd_detection(pose, **kwargs), [], []
         elif mode == 'simple':
             return self.simple_detection(pose, **kwargs)
         else:
             raise ValueError('Unknow detection mode!')
 
 
-    def combined_detection(self, pose, filter_sd=5, tolerance=25):
+    def combined_detection(self, pose, filter_sd=3, tolerance=15):
         # use foot displacement algorithm as basis
         rhs, lhs, rto, lto = self.simple_detection(pose, filter_sd)
         # use hhd algorithm for better HS detection
@@ -137,10 +127,10 @@ class GaitCycleDetector(object):
         # use fva algorithm for better TO detection
         _, _, rto2, lto2 = self.fva_detection(pose, filter_sd)
 
-        rhs = self._align_event_detections(rhs, rhs2, 'mean', tolerance, keep='left')
-        lhs = self._align_event_detections(lhs, lhs2, 'mean', tolerance, keep='left')
-        rto = self._align_event_detections(rto, rto2, 'mean', tolerance, keep='left')
-        lto = self._align_event_detections(lto, lto, 'mean', tolerance, keep='left')
+        rhs = align_values(rhs, rhs2, 'mean', tolerance, keep='left')
+        lhs = align_values(lhs, lhs2, 'mean', tolerance, keep='left')
+        rto = align_values(rto, rto2, 'mean', tolerance, keep='left')
+        lto = align_values(lto, lto, 'mean', tolerance, keep='left')
 
         return np.round(rhs), np.round(lhs), np.round(rto), np.round(lto)
 
@@ -159,7 +149,7 @@ class GaitCycleDetector(object):
 
             # find minima and maxima
             # all significant local minima
-            hs, i = find_peaks(-filtered_foot_vel, height=-filtered_foot_vel.min()/10)
+            hs, _ = find_peaks(-filtered_foot_vel, height=-filtered_foot_vel.min()/10)
             # only the 'global' maxima
             to, _ = find_peaks(filtered_foot_vel, height=filtered_foot_vel.max()/2)
             if hs.size != 0:
@@ -187,13 +177,13 @@ class GaitCycleDetector(object):
         is_right = np.sign(rheel[:, 0]) # right foot in front of pelvis
         filtered_dist = gaussian_filter1d(feet_dist * is_right, filter_sd)
 
-        mins, maxs = self._peakdet(filtered_dist, 0.05) # get turning points aka peaks of the gradient
+        mins, maxs = peakdet(filtered_dist, 0.05) # get turning points aka peaks of the gradient
         rhs = mins[:, 0] if mins.size!= 0 else []
         lhs = maxs[:, 0] if maxs.size!= 0 else []
         return rhs, lhs
 
 
-    def simple_detection(self, pose, filter_sd=3, delta=0.25):
+    def simple_detection(self, pose, filter_sd=3, delta=0.2):
         """
         simple foot displacement based algorithm for event detection on treatmills
         based on Zeni et al. (2008)
@@ -203,7 +193,7 @@ class GaitCycleDetector(object):
             #z_pos = heel_pos[:, 1]
             #ground_dist = z_pos - z_pos.min(axis=0)
             #close_to_ground = ground_dist < 0.35 * np.ptp(z_pos)
-            to, hs = self._peakdet(y_pos, delta)
+            to, hs = peakdet(y_pos, delta)
 
             hs = hs[:, 0] if hs.size!= 0 else []
             to = to[:, 0] if to.size!= 0 else []
@@ -218,7 +208,7 @@ class GaitCycleDetector(object):
     def rnn_detection(self, pose, threshold=0.7):
         if self.pose_format != 'h36m':
             raise ValueError('Topology {self.pose_format} is not supported for now!')
-        from data.gait_event_model import GaitEventModel
+        from model.gait_event_model import GaitEventModel
 
         n_features = 8
         RHIP, LHIP, RKNEE, LKNEE, RANKLE, LANKLE, VRANKLE, VLANKLE = range(n_features)
@@ -239,140 +229,14 @@ class GaitCycleDetector(object):
 
         ## create model
         model = GaitEventModel.load_pretrained()
-        model.eval()
+        y_hat = model.predict(features, threshold)
 
-        y_hat = torch.sigmoid(model(features)).detach().cpu().numpy()
-        y_hat[y_hat < threshold] = 0
-        # peak detection?
+        events = np.nonzero(y_hat)
 
-        rhs = np.nonzero(y_hat[:, 0])
-        lhs = np.nonzero(y_hat[:, 1])
-        rto = np.nonzero(y_hat[:, 2])
-        lto = np.nonzero(y_hat[:, 3])
+        rhs = np.nonzero(y_hat[:, 0])[0]
+        lhs = np.nonzero(y_hat[:, 1])[0]
+        rto = np.nonzero(y_hat[:, 2])[0]
+        lto = np.nonzero(y_hat[:, 3])[0]
 
-        return rto, rhs, lto, lhs
-   
-
-
-    def _align_event_detections(self, left, right, f='mean', tolerance=5, keep='none'):
-        """
-        align elements of A and B by nearest neighbor with distance <= tolerance
-        f is used to aggregate paired elements
-        unpaired elements can be kept or ignored
-        left: list of values, must be iterable and sorted
-        right: list of values, must be iterable and sorted
-        f: String ('mean', 'min', 'max', 'zip') for common function or custom function for aggregating pairs
-        tolerance: maximum distance to be counted as pair
-        keep: decides which unpaired values to keep; can be 'none', 'left', 'right' or 'both'
-        returns: list of paired and aggregated values and kept unpaired one
-        """
-        A = iter(left)
-        B = iter(right)
-        C = []
-
-        try:
-            a = next(A)
-            b = next(B)
-            while True:
-                if abs(a-b) <= tolerance:
-                    if f == 'mean':
-                        C.append((a+b)/2)
-                    elif f == 'min':
-                        C.append(min(a,b))
-                    elif f == 'max':
-                        C.append(max(a,b))
-                    elif f == 'zip':
-                        C.append([a,b])
-                    elif callable(f):
-                        C.append(f(a,b))
-                    a = next(A)
-                    b = next(B)
-                elif a <= b:
-                    if keep == 'left' or keep == 'both':
-                        C.append(a)
-                    a = next(A)
-                else:
-                    if keep == 'right' or keep == 'both':
-                        C.append(b)
-                    b = next(B)
-        except StopIteration:
-            pass
-        # one of the iterators may have leftover elements
-        for a in A:
-            if keep == 'left' or keep == 'both':
-                C.append(a)
-        for b in B:
-            if keep == 'right' or keep == 'both':
-                C.append(b)
-        return np.array(C)
+        return rhs, lhs, rto, lto
      
-
-
-    # Peak detection script converted from MATLAB script
-    # at http://billauer.co.il/peakdet.html
-    #    
-    # Returns two arrays
-    #    
-    # function [maxtab, mintab]=peakdet(v, delta, x)
-    # PEAKDET Detect peaks in a vector
-    # [MAXTAB, MINTAB] = PEAKDET(V, DELTA) finds the local
-    # maxima and minima ("peaks") in the vector V.
-    # MAXTAB and MINTAB consists of two columns. Column 1
-    # contains indices in V, and column 2 the found values.
-    #     
-    # With [MAXTAB, MINTAB] = PEAKDET(V, DELTA, X) the indices
-    # in MAXTAB and MINTAB are replaced with the corresponding
-    # X-values.
-    #
-    # A point is considered a maximum peak if it has the maximal
-    # value, and was preceded (to the left) by a value lower by
-    # DELTA.
-    #
-    # Eli Billauer, 3.4.05 (Explicitly not copyrighted).
-    # This function is released to the public domain; Any use is allowed.
-    def _peakdet(self, v, delta, x = None):
-        maxtab = []
-        mintab = []
-           
-        if x is None:
-            x = np.arange(len(v))
-        
-        v = np.asarray(v)
-        
-        if len(v) != len(x):
-            sys.exit('Input vectors v and x must have same length')
-        
-        if not np.isscalar(delta):
-            sys.exit('Input argument delta must be a scalar')
-        
-        if delta <= 0:
-            sys.exit('Input argument delta must be positive')
-        
-        mn, mx = np.Inf, -np.Inf
-        mnpos, mxpos = np.NaN, np.NaN
-        
-        lookformax = True
-        
-        for i in np.arange(len(v)):
-            this = v[i]
-            if this > mx:
-                mx = this
-                mxpos = x[i]
-            if this < mn:
-                mn = this
-                mnpos = x[i]
-            
-            if lookformax:
-                if this < mx-delta:
-                    maxtab.append((mxpos, mx))
-                    mn = this
-                    mnpos = x[i]
-                    lookformax = False
-            else:
-                if this > mn+delta:
-                    mintab.append((mnpos, mn))
-                    mx = this
-                    mxpos = x[i]
-                    lookformax = True
-
-        return np.array(mintab), np.array(maxtab)

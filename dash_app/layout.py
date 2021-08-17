@@ -15,8 +15,8 @@ def create_header():
     return dbc.Navbar([
         html.A(
                 dbc.Row([
-                        dbc.Col(html.Img(src=utils.get_asset('logo.png'), height="30px")),
-                        dbc.Col(dbc.NavbarBrand("DigiGait", className="ml-2")),
+                        dbc.Col(html.Img(src=utils.get_asset('app_logo.png'), height="30px")),
+                        #dbc.Col(dbc.NavbarBrand("DigiGait", className="ml-2")),
                     ],
                     align="center",
                     no_gutters=True,
@@ -135,7 +135,6 @@ def video_settings():
                             ),
                             dbc.Checklist(
                                 options=[
-                                    {"label": "Show Cycles", "value": "show_cycles", "label_id": "show_cycles"},
                                     {"label": "Debias", "value": "debias", "label_id": "debias"},
                                     {"label": "Skeleton Normalization", "value": "skel_norm", "label_id": "skel_norm"},
                                 ],
@@ -148,10 +147,6 @@ def video_settings():
                         ]),
                         id="advanced_options",
                         is_open=False,
-                    ),
-                    dbc.Tooltip(
-                        "Show separation lines for the begining of each gait cycle",
-                        target="show_cycles",
                     ),
                     dbc.Tooltip(
                         "Correct the systematic underestimation of the angle "
@@ -211,7 +206,23 @@ def overview_settings():
                 ),
             ],
             className='custom-switch custom-control custom-control-inline',
-        )
+        ),
+        html.Div([
+                dbc.Checkbox(
+                    id="show_cycles", className="custom-control-input",
+                    checked=True
+                ),
+                dbc.Label(
+                    "Show Cycles",  html_for="show_cycles",
+                    className="custom-control-label",
+                ),
+                dbc.Tooltip(
+                    "Show separation lines for the begining of each gait cycle",
+                    target="show_cycles",
+                ),
+            ],
+            className='custom-switch custom-control custom-control-inline',
+        ),
 
     ], className='mb-4',)
 
@@ -271,8 +282,11 @@ def pose_card():
                                            'scrollZoom':True},
                                 ), label='Avg. gait phase'
                             ),
-                            dcc.Tab(label='Metrics',
-                                
+                            dcc.Tab(
+                                dbc.Table.from_dataframe(metrics, striped=True, bordered=True, 
+                                    dark=True, responsive=True,),
+                                id = 'metrics',
+                                label='Metrics',
                             ),
                         ]), md=7)
                 ]),
@@ -280,13 +294,16 @@ def pose_card():
         ]
     )
 
-# LAYOUT
+# INIT STATE
 #=======
 demo_pose, demo_angles, demo_events = utils.get_demo_data()
 demo_avg = utils.avg_gait_phase(demo_angles, demo_events)
 norm_data = utils.get_norm_data()['KneeZ']
+metrics = utils.calc_metrics(demo_angles, demo_events)
 eye = utils.get_sagital_view(demo_pose)
 
+# LAYOUT
+#=======
 layout = html.Div([
     dcc.Store(id='video_data'),
     dcc.Interval(id='animator', interval=500, disabled=False),

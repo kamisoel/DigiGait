@@ -7,6 +7,7 @@ from collections.abc import Mapping
 from collections import defaultdict
 
 import numpy as np
+import pandas as pd
 
 from dash_app.config import DashConfig
 from data.person_detection import detect_person
@@ -16,6 +17,8 @@ from data.video_dataset import VideoDataset
 from data.h36m_skeleton_helper import H36mSkeletonHelper
 from data.angle_helper import calc_common_angles
 from data.gait_cycle_detector import GaitCycleDetector
+from data.timeseries_utils import align_values
+
 
 # use ffprobe to get the duration of a video
 def ffprobe_duration(filename):
@@ -42,16 +45,73 @@ def random_upload_url(mkdir=False):
         url.mkdir(parents=True, exist_ok=True)
     return url
 
-def calc_metrics(knee_angles, gait_events):
-    pass
+def _normed_cycles(angles, events):
+    gcd = GaitCycleDetector()
+    rhs, lhs, *_ = events
+    r_normed_phases = gcd.normed_gait_phases(angles[:,0], rhs)
+    l_normed_phases = gcd.normed_gait_phases(angles[:,1], lhs)
+    return np.stack([r_normed_phases, l_normed_phases], axis=0)
+
+
+def calc_metrics(angles, events):
+    def _filter_outlier(data):
+        from scipy.stats import iqr
+        return data[np.abs(data - np.median(data)) <= 2.5 * iqr(data)]
+
+    def _mean_std_str(values, unit): # expect 1d-array (N)
+        return f"{values.mean():.1f} ± {values.std():.1f} {unit}"
+
+    def _ratio_str(r, l):
+        r, l= r.mean(), l.mean()
+        sign = '+' if r/l > 1 else ''
+        return sign + f"{(100 * r / l - 100):.2f}%"
+
+    def _row(name, unit, right, left):
+        right = _filter_outlier(right)
+        left = _filter_outlier(left)
+        return name, _mean_std_str(right, unit), \
+               _mean_std_str(left, unit), _ratio_str(right, left)
+
+    def _time(values, fps=50):
+        return values / fps * 1000
+
+    names = ['Metric', 'Right side', 'Left side', 'Right / Left ratio']
+
+    rhs, lhs, rto, lto = events
+    gcd = GaitCycleDetector()
+    rcycles = gcd.normed_gait_phases(angles[:,0], rhs) # (N, 101)
+    lcycles = gcd.normed_gait_phases(angles[:,1], lhs)
+
+    rstance = align_values(rhs, rto, 'diff', tolerance=30, start_left=True)
+    lstance = align_values(lhs, lto, 'diff', tolerance=30, start_left=True)
+    
+    rswing = align_values(rto, rhs, 'diff', tolerance=30, start_left=True)
+    lswing = align_values(lto, lhs, 'diff', tolerance=30, start_left=True)
+
+    rdouble = align_values(rhs, lto, 'diff', tolerance=10, start_left=True)
+    ldouble = align_values(lhs, rto, 'diff', tolerance=10, start_left=True)
+
+
+    metrics = [_row('Range of motion', '°', rcycles.ptp(axis=-1), lcycles.ptp(axis=-1)),
+               _row('Max peak', '°', rcycles.max(axis=-1), lcycles.max(axis=-1)),
+               _row('Max peak (loading response)', '°', rcycles[...,:30].max(axis=-1), lcycles[...,:30].max(axis=-1)),
+               _row('Total step time', 'ms', _time(np.diff(rhs)), _time(np.diff(lhs))),
+               _row('Stance time', 'ms', _time(rstance), _time(lstance)),
+               _row('Swing time', 'ms', _time(rswing), _time(lswing)),
+               _row('Double support time', 'ms', _time(rdouble), _time(ldouble)),
+              ]
+    return pd.DataFrame(metrics, columns=names)
+
 
 def get_demo_data():
     demo_path = Path(DashConfig.DEMO_DATA) / 'demo_data.npz'
     demo_data = np.load(demo_path, allow_pickle=True)
     demo_pose = demo_data['pose_3d']
     demo_angles = 1.25 * np.stack([demo_data['rknee_angle'], demo_data['lknee_angle']], axis=-1)
-    gait_cycles = (demo_data['rcycles'], demo_data['lcycles'], None, None)
-    return demo_pose, demo_angles, gait_cycles
+    gait_events = (demo_data['rcycles'], demo_data['lcycles'], None, None)
+
+    gait_events = GaitCycleDetector('h36m').detect(demo_pose, mode='auto')
+    return demo_pose, demo_angles, gait_events
 
 
 def avg_gait_phase(angles, events):

@@ -60,6 +60,16 @@ def register_callbacks(app):
         return not c
 
 
+    @app.callback(Output('angle_graph', 'figure'),
+                  Input('show_cycles', 'checked'),
+                  State('angle_graph', 'figure'))
+    def toggle_cycles(checked, fig):
+        for l in fig['layout']['shapes'][1:]:
+            l['visible'] = checked
+        return fig
+
+
+
     @app.callback(Output('advanced_options', 'is_open'),
                   Output('options_btn', 'children'),
                   Trigger('options_btn', 'n_clicks'),
@@ -118,8 +128,7 @@ def register_callbacks(app):
 
         eye = utils.get_sagital_view(pose_3d)
         skel_fig = figures.create_skeleton_fig(pose_3d, eye=eye)
-        if 'show_cycles' not in options:
-            rhs = []
+
         ang_fig = figures.create_angle_figure(knee_angles, rhs)
         gait_phase_fig = figures.create_gait_phase_figure(
                             avg_gait_phase, norm_data)
