@@ -150,7 +150,7 @@ def video_settings():
                     ),
                     dbc.Tooltip(
                         "Correct the systematic underestimation of the angle "
-                        "by introducing a scale factor of 1.25",
+                        "by introducing a scale factor of 1.2",
                         target="debias",
                     ),
                     dbc.Tooltip(

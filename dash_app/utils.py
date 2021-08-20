@@ -17,7 +17,7 @@ from data.video_dataset import VideoDataset
 from data.h36m_skeleton_helper import H36mSkeletonHelper
 from data.angle_helper import calc_common_angles
 from data.gait_cycle_detector import GaitCycleDetector
-from data.timeseries_utils import align_values
+from data.timeseries_utils import align_values, lp_filter, filter_outliers
 
 
 # use ffprobe to get the duration of a video
@@ -54,9 +54,6 @@ def _normed_cycles(angles, events):
 
 
 def calc_metrics(angles, events):
-    def _filter_outlier(data):
-        from scipy.stats import iqr
-        return data[np.abs(data - np.median(data)) <= 2.5 * iqr(data)]
 
     def _mean_std_str(values, unit): # expect 1d-array (N)
         return f"{values.mean():.1f} ± {values.std():.1f} {unit}"
@@ -67,8 +64,8 @@ def calc_metrics(angles, events):
         return sign + f"{(100 * r / l - 100):.2f}%"
 
     def _row(name, unit, right, left):
-        right = _filter_outlier(right)
-        left = _filter_outlier(left)
+        right = filter_outliers(right)
+        left = filter_outliers(left)
         return name, _mean_std_str(right, unit), \
                _mean_std_str(left, unit), _ratio_str(right, left)
 
@@ -107,9 +104,11 @@ def get_demo_data():
     demo_path = Path(DashConfig.DEMO_DATA) / 'demo_data.npz'
     demo_data = np.load(demo_path, allow_pickle=True)
     demo_pose = demo_data['pose_3d']
-    demo_angles = 1.25 * np.stack([demo_data['rknee_angle'], demo_data['lknee_angle']], axis=-1)
+    demo_angles = 1.2 * np.stack([demo_data['rknee_angle'], demo_data['lknee_angle']], axis=-1)
     gait_events = (demo_data['rcycles'], demo_data['lcycles'], None, None)
 
+    demo_pose = lp_filter(demo_pose, 7)
+    demo_angles = lp_filter(demo_angles, 7)
     gait_events = GaitCycleDetector('h36m').detect(demo_pose, mode='auto')
     return demo_pose, demo_angles, gait_events
 
@@ -119,8 +118,8 @@ def avg_gait_phase(angles, events):
     rhs, lhs, _, _ = events
     r_normed_phases = gcd.normed_gait_phases(angles[:,0], rhs)
     l_normed_phases = gcd.normed_gait_phases(angles[:,1], lhs)
-    r_mean = np.mean(r_normed_phases[:5], axis=0)
-    l_mean = np.mean(l_normed_phases[:5], axis=0)
+    r_mean = np.mean(r_normed_phases[:], axis=0)
+    l_mean = np.mean(l_normed_phases[:], axis=0)
     return r_mean, l_mean
 
 
@@ -195,11 +194,12 @@ def run_estimation(video_path, video_range=None,
         pose_2d = keypoints['video']['custom'][0]
         pose_3d = estimator_3d.estimate(keypoints, meta)
         pose_3d = next(iter(pose_3d.values()))
+        pose_3d = lp_filter(pose_3d, 6)
 
         angles = calc_common_angles(pose_3d, clinical=True)
         knee_angles = np.stack([angles['RKnee'], angles['LKnee']], axis=-1)
         if ops['debias']:
-            knee_angles *= 1.25
+            knee_angles *= 1.2
 
         gait_events = gcd.detect(pose_3d, mode=detection)
 

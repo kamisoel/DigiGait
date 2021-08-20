@@ -25,7 +25,7 @@ class H36mSkeletonHelper(object):
             'LeftWrist': 13,
             'RightShoulder': 14,
             'RightElbow': 15,
-            'RightWrist': 16,
+            'RightWrist': 16
             #'RightAnkleEndSite': -1,
             #'LeftAnkleEndSite': -1,
             #'LeftWristEndSite': -1,

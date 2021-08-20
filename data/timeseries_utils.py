@@ -1,15 +1,43 @@
 import numpy as np
 from scipy.ndimage.filters import gaussian_filter1d
+from scipy.signal import filtfilt, butter
 from scipy.interpolate import interp1d
+from scipy.stats import iqr
 
+
+def minmax_scale(X, feature_range=(-1,1)):
+    data_min = np.nanmin(X, axis=0)
+    data_range = np.nanmax(X, axis=0) - data_min
+    _scale = (feature_range[1] - feature_range[0]) / data_range
+    _min = feature_range[0] - data_min * _scale
+    return X * _scale + _min
 
 def moving_avg(data, window=3):
     return np.apply_along_axis(lambda x: pd.Series(x).rolling(window).mean(),
                                arr = data, axis = 0)
 
-def gauss_filter(data, sd=1):
-    return np.apply_along_axis(lambda x: gaussian_filter1d(x,sd),
-                               arr = data, axis = 0)
+def find_outliers(data, iqr_factor=2.):
+    return np.abs(data - np.median(data)) > iqr_factor * iqr(data)
+
+
+def filter_outliers(data, iqr_factor=2.):
+    return data[~find_outliers(data, iqr_factor)]
+
+
+def noise_filter(data, sd=1):
+    return gaussian_filter1d(data, sd, axis=0)
+
+
+def lp_filter(data, lp_freq=10, order=4, fs=100):
+    nyq = 0.5 * fs
+    b, a = butter(order, lp_freq/nyq, btype='low', analog=False)
+    return filtfilt(b, a, data, axis=0)
+
+
+def interp_along_time(data, old_fs=50, new_fs=100):
+    x = np.linspace(0, 1, len(data))
+    new_x = np.linspace(0, 1, int(new_fs/old_fs * len(data)))
+    return interp1d(x, data, 'cubic', axis=0)(new_x)
 
 def time_normalize(y, steps=101):
     x = np.linspace(0, 1, len(y))

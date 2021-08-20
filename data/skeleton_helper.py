@@ -64,6 +64,64 @@ def mediapipe2coco(keypoints):
     return coco_kpts
 
 
+class H36mSkeletonHelper(object):
+
+    def __init__(self):
+        self.root = 'Hip'
+        self.keypoint2index = {
+            'Hip': 0,
+            'RightHip': 1,
+            'RightKnee': 2,
+            'RightAnkle': 3,
+            'LeftHip': 4,
+            'LeftKnee': 5,
+            'LeftAnkle': 6,
+            'Spine': 7,
+            'Thorax': 8,
+            'Neck': 9,
+            'HeadEndSite': 10,
+            'LeftShoulder': 11,
+            'LeftElbow': 12,
+            'LeftWrist': 13,
+            'RightShoulder': 14,
+            'RightElbow': 15,
+            'RightWrist': 16
+        }
+        self.index2keypoint = {v: k for k, v in self.keypoint2index.items()}
+        self.keypoint_num = len(self.keypoint2index)
+
+        self.children = {
+            'Hip': ['RightHip', 'LeftHip', 'Spine'],
+            'RightHip': ['RightKnee'],
+            'RightKnee': ['RightAnkle'],
+            'RightAnkle': [],
+            'LeftHip': ['LeftKnee'],
+            'LeftKnee': ['LeftAnkle'],
+            'LeftAnkle': [],
+            'Spine': ['Thorax'],
+            'Thorax': ['Neck', 'LeftShoulder', 'RightShoulder'],
+            'Neck': ['HeadEndSite'],
+            'HeadEndSite': [],
+            'LeftShoulder': ['LeftElbow'],
+            'LeftElbow': ['LeftWrist'],
+            'LeftWrist': [],
+            'RightShoulder': ['RightElbow'],
+            'RightElbow': ['RightWrist'],
+            'RightWrist': []
+        }
+        self.parent = {self.root: None}
+        for parent, children in self.children.items():
+            for child in children:
+                self.parent[child] = parent
+                
+        self.left_joints = [
+            joint for joint in self.keypoint2index
+            if 'Left' in joint
+        ]
+        self.right_joints = [
+            joint for joint in self.keypoint2index
+            if 'Right' in joint
+        ]
 
 class CocoSkeleton(object):
 

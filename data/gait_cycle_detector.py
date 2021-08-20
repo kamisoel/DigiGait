@@ -2,11 +2,9 @@ import numpy as np
 import vg
 from scipy.ndimage.filters import gaussian_filter1d
 from scipy.signal import find_peaks
-from scipy.stats import iqr
 
 import data.skeleton_helper as skeletons
-from data.h36m_skeleton_helper import H36mSkeletonHelper
-from data.timeseries_utils import time_normalize, peakdet, align_values
+from data.timeseries_utils import time_normalize, peakdet, align_values, lp_filter, find_outliers
 
 class GaitCycleDetector(object):
 
@@ -34,7 +32,7 @@ class GaitCycleDetector(object):
             self.rhip = self.skel.keypoint2index['RHip']
             self.mhip = -1
         elif pose_format == 'h36m':
-            self.skel = H36mSkeletonHelper()
+            self.skel = skeletons.H36mSkeletonHelper()
             self.lfoot = self.skel.keypoint2index['LeftAnkle']
             self.rfoot = self.skel.keypoint2index['RightAnkle']
             self.lknee = self.skel.keypoint2index['LeftKnee']
@@ -56,7 +54,7 @@ class GaitCycleDetector(object):
         cycles = cycles.astype(int)
 
         lengths = cycles[1:] - cycles[:-1]
-        filtered = np.where(np.abs(lengths - np.median(lengths)) > 1.5 * iqr(lengths))
+        filtered = find_outliers(lengths, 1.5)
 
         for i in range(0, len(cycles)-1):
             if not np.isin(i, filtered):
@@ -104,6 +102,7 @@ class GaitCycleDetector(object):
                 kept.append(i)
         return cycles[kept]
 
+
     def detect(self, pose, mode='auto', **kwargs):
         if mode == 'auto':
             return self.combined_detection(pose, **kwargs)
@@ -112,7 +111,8 @@ class GaitCycleDetector(object):
         elif mode == 'fva':
             return self.fva_detection(pose, **kwargs)
         elif mode == 'hhd':
-            return *self.hhd_detection(pose, **kwargs), [], []
+            return (*self.hhd_detection(pose, **kwargs), 
+                    np.array([]), np.array([]))
         elif mode == 'simple':
             return self.simple_detection(pose, **kwargs)
         else:
@@ -135,7 +135,7 @@ class GaitCycleDetector(object):
         return np.round(rhs), np.round(lhs), np.round(rto), np.round(lto)
 
 
-    def fva_detection(self, pose, filter_sd=5):
+    def fva_detection(self, pose, lp_freq=6):
         """
         Foot velocity algorithm by O'Connor et al. (2007)
         """
@@ -145,7 +145,7 @@ class GaitCycleDetector(object):
             # use finite estimate to calculate velocity
             foot_vel = np.gradient(vertical_foot_pos)
             # filter the curve using a gaussian kernel 
-            filtered_foot_vel = gaussian_filter1d(foot_vel, filter_sd)
+            filtered_foot_vel = lp_filter(foot_vel, lp_freq)
 
             # find minima and maxima
             # all significant local minima
@@ -166,7 +166,7 @@ class GaitCycleDetector(object):
         return rhs, lhs, rto, lto
 
 
-    def hhd_detection(self, pose, filter_sd=5, delta=0.5):
+    def hhd_detection(self, pose, lp_freq=6, delta=0.5):
         """
         Heel strike detection using the Horizontal Heel Distance (HHD) 
         algorithm by Banks et al. (2015)
@@ -175,7 +175,7 @@ class GaitCycleDetector(object):
         rheel, lheel = pose[:, self.rfoot, -2:], pose[:, self.lfoot, -2:] #ignore x-axis in 3D
         feet_dist = np.linalg.norm(rheel - lheel, axis=1) # horizontal heel distance
         is_right = np.sign(rheel[:, 0]) # right foot in front of pelvis
-        filtered_dist = gaussian_filter1d(feet_dist * is_right, filter_sd)
+        filtered_dist = lp_filter(feet_dist * is_right, lp_freq)
 
         mins, maxs = peakdet(filtered_dist, 0.05) # get turning points aka peaks of the gradient
         rhs = mins[:, 0] if mins.size!= 0 else []
@@ -183,13 +183,13 @@ class GaitCycleDetector(object):
         return rhs, lhs
 
 
-    def simple_detection(self, pose, filter_sd=3, delta=0.2):
+    def simple_detection(self, pose, lp_freq=6, delta=0.2):
         """
         simple foot displacement based algorithm for event detection on treatmills
         based on Zeni et al. (2008)
         """
         def _detect(heel_pos):
-            y_pos = gaussian_filter1d(heel_pos[:, 0], filter_sd)
+            y_pos = lp_filter(heel_pos[:, 0], lp_freq)
             #z_pos = heel_pos[:, 1]
             #ground_dist = z_pos - z_pos.min(axis=0)
             #close_to_ground = ground_dist < 0.35 * np.ptp(z_pos)
@@ -205,38 +205,14 @@ class GaitCycleDetector(object):
         return rhs, lhs, rto, lto
 
 
-    def rnn_detection(self, pose, threshold=0.7):
+    def rnn_detection(self, pose, threshold=0.1):
         if self.pose_format != 'h36m':
             raise ValueError('Topology {self.pose_format} is not supported for now!')
         from model.gait_event_model import GaitEventModel
 
-        n_features = 8
-        RHIP, LHIP, RKNEE, LKNEE, RANKLE, LANKLE, VRANKLE, VLANKLE = range(n_features)
-        
-        ## create features
-        norm_pose = self._norm_walking_dir(pose)
-
-        features = np.zeros((len(pose), n_features, 3))
-        features[:, RHIP] = norm_pose[:, self.rhip]
-        features[:, LHIP] = norm_pose[:, self.lhip]
-        features[:, RKNEE] = norm_pose[:, self.rknee]
-        features[:, LKNEE] = norm_pose[:, self.lknee]
-        features[:, RANKLE] = norm_pose[:, self.rfoot]
-        features[:, LANKLE] = norm_pose[:, self.lfoot]
-        features[:, VRANKLE] = np.gradient(norm_pose[:, self.lfoot], axis=0)
-        features[:, VLANKLE] = np.gradient(norm_pose[:, self.lfoot], axis=0)
-        features = features.reshape(-1, n_features * 3)
-
         ## create model
         model = GaitEventModel.load_pretrained()
-        y_hat = model.predict(features, threshold)
+        pose = self._norm_walking_dir(pose)
 
-        events = np.nonzero(y_hat)
-
-        rhs = np.nonzero(y_hat[:, 0])[0]
-        lhs = np.nonzero(y_hat[:, 1])[0]
-        rto = np.nonzero(y_hat[:, 2])[0]
-        lto = np.nonzero(y_hat[:, 3])[0]
-
-        return rhs, lhs, rto, lto
+        return model.predict_from_pose(pose)
      
