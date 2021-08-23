@@ -1,13 +1,18 @@
 #from dash.dependencies import Input, Output, State
+import dash
 from dash import no_update
 from dash_extensions.enrich import Output, Input, State, Trigger, ServersideOutput
 from dash.exceptions import PreventUpdate
+import dash_bootstrap_components as dbc
+
+from dash_extensions.snippets import send_bytes, send_data_frame
 
 from dash_app.layout import video_range_slider, get_video_player
 from dash_app import utils
 from dash_app import figures
 
 import base64
+import pandas as pd
 from pathlib import Path
 from collections import defaultdict
 import json
@@ -26,11 +31,12 @@ def register_callbacks(app):
     @app.callback(Output('video_container', 'children'),
                   Output('video_range_group', 'children'),
                   ServersideOutput('video_data', 'data'),
+                  ServersideOutput('pose_data_c3d', 'data'),
                   Input('video_uploader', 'contents'),
                   State('video_uploader', 'filename'),
-                  State('video_uploader', 'last_modified'),)
+                  State('video_uploader', 'last_modified'))
                   #State('session', 'data'))
-    def update_output(content, name, date):
+    def upload_file(content, name, date):
         #if session_data is not None and 'upload_dir' in session_data:
         #    upload_dir = Path(session_data['upload_dir'])
         #else:
@@ -40,18 +46,42 @@ def register_callbacks(app):
         # TODO: video file conversion
         content_type, content_string = content.split(',')
         #file.write_bytes(base64.b64decode(content_string))
-        video_content = base64.b64decode(content_string)
-        duration = round(utils.get_duration(utils.memory_file(video_content)))
+        file_content = base64.b64decode(content_string)
+        if name.endswith('.c3d'): # load a .c3d file
+            pose, angles, events = utils.load_c3d_data(utils.memory_file(file_content))
+            pose_data = dict(pose=pose, angles=angles, events=events)
+            return no_update, no_update, no_update, pose_data
+        else:  # load a video file
+            duration = round(utils.get_duration(utils.memory_file(file_content)))
 
-        slider = video_range_slider(duration)
-        player = get_video_player(id='video_player', src=content)
-        return player, slider, video_content
+            slider = video_range_slider(duration)
+            player = get_video_player(id='video_player', src=content)
+            return player, slider, file_content, no_update
 
 
     @app.callback(Output('analyze_btn', 'disabled'),
                   Input('video_data', 'modified_timestamp'))
     def activate_btn(t):
         return False
+
+
+    @app.callback(Output("download", "data"),
+                  Trigger("c3d_download_btn", "n_clicks"),
+                  State('pose_data', 'data'))
+    def download_c3d(data):
+        pose = data['pose']
+        angles = data['angles']
+        events = data['events']
+        content = utils.write_c3d_data(pose, angles, events)
+        content_b64 = base64.b64encode(content).decode()
+        return dict(content=content_b64, filename='pose.c3d')
+
+
+    #@app.callback(Output("download", "data"),
+    #          Trigger("csv_download_btn", "n_clicks"),
+    #          State('pose_data', 'data'))
+    def download_csv(data):
+        return send_data_frame(as_csv(**data), "pose.csv")
 
 
     @app.callback(Output('animator', 'disabled'),
@@ -112,19 +142,37 @@ def register_callbacks(app):
     )
 
 
+    @app.callback(ServersideOutput('pose_data', 'data'),
+                  Input('pose_data_video', 'data'),
+                  Input('pose_data_c3d', 'data'))
+    def multiplex(video_data, c3d_data):
+        ctx = dash.callback_context
+        input_id = ctx.triggered[0]['prop_id'].split('.')[0]
+        if input_id == 'pose_data_video':
+            return video_data
+        else:
+            return c3d_data
+        #return ctx.triggered[0]['value']
+
+
     @app.callback(Output('pose_graph', 'figure'),
                   Output('angle_graph', 'figure'),
                   Output('gait_phase_graph', 'figure'),
+                  Output('phase_space_reconstruction', 'figure'),
+                  Output('metrics', 'children'),
+                  Output('nl_metrics', 'children'),
                   Input('pose_data', 'data'),
                   State('option_boxes','value'),)
-    def update_figures(data, options):
+    def update_output(data, options):
         pose_3d = data['pose']
         knee_angles = data['angles']
         events = data['events']
         rhs = events[0]
-        
+
         norm_data = utils.get_norm_data('overground')['KneeZ']
         avg_gait_phase = utils.avg_gait_phase(knee_angles, events)
+        metrics = utils.calc_metrics(knee_angles, events)
+        embeddings, nl_metrics = utils.calc_nonlinear(knee_angles)
 
         eye = utils.get_sagital_view(pose_3d)
         skel_fig = figures.create_skeleton_fig(pose_3d, eye=eye)
@@ -132,10 +180,17 @@ def register_callbacks(app):
         ang_fig = figures.create_angle_figure(knee_angles, rhs)
         gait_phase_fig = figures.create_gait_phase_figure(
                             avg_gait_phase, norm_data)
-        return skel_fig, ang_fig, gait_phase_fig
+        phase_space_fig = figures.create_phase_space_reconstruction(embeddings)
+
+        metrics_table = dbc.Table.from_dataframe(metrics, striped=True, bordered=True, 
+                                                dark=True, responsive=True),
+        nl_metrics_table = dbc.Table.from_dataframe(nl_metrics, striped=True, bordered=True, 
+                                                dark=True, responsive=True),
+
+        return skel_fig, ang_fig, gait_phase_fig, phase_space_fig, metrics_table, nl_metrics_table
 
 
-    @app.callback(ServersideOutput('pose_data', 'data'),
+    @app.callback(ServersideOutput('pose_data_video', 'data'),
                   Output("error-toast", "is_open"), 
                   Trigger('analyze_btn', 'n_clicks'),
                   State('video_data', 'data'),

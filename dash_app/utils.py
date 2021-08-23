@@ -1,5 +1,6 @@
 import subprocess
 import os
+import io
 import sys
 from iocursor import Cursor
 from pathlib import Path
@@ -9,6 +10,8 @@ from collections import defaultdict
 import numpy as np
 import pandas as pd
 
+from data import c3d_helper
+from data import nonlinear as nl
 from dash_app.config import DashConfig
 from data.person_detection import detect_person
 from model.videopose3d import VideoPose3D
@@ -33,6 +36,48 @@ def get_duration(video_path):
     with Video(video_path) as video:
         return video.duration
 
+def calc_nonlinear(angles):
+    def _f(value):
+        return f'{value:.2f}'
+
+    embeddings = []
+    nl_metrics = []
+    for i in range(angles.shape[1]):
+        data = angles[:,i]
+        #delay = nl.estimate_delay(data)
+        delay = 4
+        dim = 3
+        embeddings.append(nl.takensEmbedding(data, delay, dim))
+
+        nl_metrics.append({
+            'Lyapunov exponent': _f(nl.max_lyapunov_exp(data, delay, dim, 50)),
+            'Sample entropy': _f(nl.sample_entropy(data, dim)),
+            'Correlation Dimension': _f(nl.correlation_dim(data, dim))
+        })
+    embeddings = np.stack(embeddings, 0)
+    nl_metrics = pd.DataFrame(nl_metrics, index=['Right side', 'Left side']).transpose()
+    nl_metrics = nl_metrics.rename_axis('Metrics').reset_index()
+    return embeddings, nl_metrics
+
+
+def write_c3d_data(pose, angle, events):
+    in_mem_file = io.BytesIO()
+    c3d_helper.write_c3d(in_mem_file, pose, angle, events, freq=50)
+    return in_mem_file.getvalue()
+
+
+def load_c3d_data(file):
+    #in_mem_file = io.BytesIO(data)
+    pose, angles, events = c3d_helper.read_c3d(file)
+    if len(pose) > 500: # long recording, more than 8 steps expected -> recalculate events
+        gcd = GaitCycleDetector(pose_format='h36m')
+        events = gcd.detect(pose, mode='auto')
+    return pose, angles, events
+
+
+def as_csv(pose, angle, events):
+    pass
+
 
 def get_asset(file):
     return os.path.join(DashConfig.ASSETS_ROOT, file)
@@ -56,7 +101,7 @@ def _normed_cycles(angles, events):
 def calc_metrics(angles, events):
 
     def _mean_std_str(values, unit): # expect 1d-array (N)
-        return f"{values.mean():.1f} ± {values.std():.1f} {unit}"
+        return f"{np.nanmean(values):.1f} ± {np.nanstd(values):.1f} {unit}"
 
     def _ratio_str(r, l):
         r, l= r.mean(), l.mean()
@@ -64,8 +109,8 @@ def calc_metrics(angles, events):
         return sign + f"{(100 * r / l - 100):.2f}%"
 
     def _row(name, unit, right, left):
-        right = filter_outliers(right)
-        left = filter_outliers(left)
+        right = filter_outliers(right, 2.5)
+        left = filter_outliers(left, 2.5)
         return name, _mean_std_str(right, unit), \
                _mean_std_str(left, unit), _ratio_str(right, left)
 

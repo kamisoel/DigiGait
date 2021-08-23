@@ -16,11 +16,11 @@ def moving_avg(data, window=3):
     return np.apply_along_axis(lambda x: pd.Series(x).rolling(window).mean(),
                                arr = data, axis = 0)
 
-def find_outliers(data, iqr_factor=2.):
+def find_outliers(data, iqr_factor=1.5):
     return np.abs(data - np.median(data)) > iqr_factor * iqr(data)
 
 
-def filter_outliers(data, iqr_factor=2.):
+def filter_outliers(data, iqr_factor=1.5):
     return data[~find_outliers(data, iqr_factor)]
 
 

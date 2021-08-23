@@ -2,11 +2,12 @@ import dash
 import dash_bootstrap_components as dbc
 import dash_core_components as dcc
 import dash_html_components as html
+from dash_extensions import Download
 
 import numpy as np
 
 from dash_app import utils
-from dash_app.figures import create_skeleton_fig, create_angle_figure, create_gait_phase_figure
+from dash_app.figures import *
 
 
 # COMPONENTS
@@ -56,11 +57,11 @@ def get_upload_component(id):
     return dcc.Upload(
         id=id,
         className='upload',
-        accept='video/*',
+        accept='video/*,.c3d',
         children=html.Div([
-            'Drag and Drop or ',
-            html.A('Select File'),
-            ' to change video'
+            'Drag & Drop or ',
+            html.A('Click to select'),
+            ' a video or c3d file'
         ]),
     )
 
@@ -124,13 +125,13 @@ def video_settings():
                             dbc.Select(
                                 id = 'event_detection_select',
                                 options=[
-                                    {"label": "Auto", "value": 'Auto'},
+                                    {"label": "Auto", "value": 'auto'},
                                     {"label": "Recurrent Neural Network", "value": 'rnn'},
                                     {"label": "Foot velocity algorithm (FVA)", "value": 'fva'},
                                     {"label": "Foot displacement algorithm", "value": 'simple'},
                                     {"label": "Horizontal Heel Displacement (HHD)", "value": 'hhd'},
                                 ],
-                                value = 'mp_nf',
+                                value = 'auto',
                                 className="mb-4",
                             ),
                             dbc.Checklist(
@@ -235,61 +236,89 @@ def pose_card():
         children=[
             dcc.Loading(
                 id="pose-loading",
-                children=dbc.Row([
-                    dcc.Store(id='pose_data'),
-                    dbc.Toast(
-                        [html.P("Could not estimate pose correctly!", className="mb-0")],
-                        id="error-toast",
-                        header="Something went wrong :(",
-                        icon="danger",
-                        is_open=False,
-                        dismissable=True,
-                        style={"position": "fixed", "top": 60, "right": 10, "width": 350},
-                    ),
-                    dbc.Col(
-                        # 3d viewer
-                        dcc.Graph(
-                            id="pose_graph",
-                            figure=create_skeleton_fig(demo_pose, eye=eye),
-                            config={'displaylogo': False,},
-                        ), md=5),
-                    dbc.Col(
-                        dbc.Tabs([
-                            dbc.Tab(
-                                html.Div([
+                children=[
+                    dbc.Row([
+                        dcc.Store(id='pose_data'),
+                        dbc.Toast(
+                            [html.P("Could not estimate pose correctly!", className="mb-0")],
+                            id="error-toast",
+                            header="Something went wrong :(",
+                            icon="danger",
+                            is_open=False,
+                            dismissable=True,
+                            style={"position": "fixed", "top": 60, "right": 10, "width": 350},
+                        ),
+                        dbc.Col(
+                            # 3d viewer
+                            dcc.Graph(
+                                id="pose_graph",
+                                figure=create_skeleton_fig(demo_pose, eye=eye),
+                                config={'displaylogo': False,},
+                            ), md=5),
+                        dbc.Col(
+                            dbc.Tabs([
+                                dbc.Tab(
+                                    html.Div([
+                                        dcc.Graph(
+                                            id="angle_graph",
+                                            figure=create_angle_figure(demo_angles, demo_events[0]),
+                                            config={'displaylogo': False,
+                                                    'modeBarButtonsToAdd': ['drawline',
+                                                                            'drawcircle',
+                                                                            'drawrect',
+                                                                            'eraseshape'],
+                                                   'scrollZoom':True},
+                                        ),
+                                        overview_settings(),
+                                    ]), label='Overview',
+                                ),
+                                dbc.Tab(
                                     dcc.Graph(
-                                        id="angle_graph",
-                                        figure=create_angle_figure(demo_angles, demo_events[0]),
+                                        id="gait_phase_graph",
+                                        figure=create_gait_phase_figure(demo_avg, norm_data),
                                         config={'displaylogo': False,
                                                 'modeBarButtonsToAdd': ['drawline',
                                                                         'drawcircle',
                                                                         'drawrect',
                                                                         'eraseshape'],
                                                'scrollZoom':True},
+                                    ), label='Avg. gait phase'
+                                ),
+                                dcc.Tab(
+                                    dbc.Table.from_dataframe(metrics, striped=True, bordered=True, 
+                                        dark=True, responsive=True,),
+                                    id = 'metrics',
+                                    label='Metrics',
+                                ),
+                                dcc.Tab([
+                                    dcc.Graph(
+                                        id='phase_space_reconstruction',
+                                        figure=create_phase_space_reconstruction(emb),
+                                        config={'displaylogo': False,
+                                                'modeBarButtonsToAdd': ['drawline',
+                                                                        'drawcircle',
+                                                                        'drawrect',
+                                                                        'eraseshape'],
+                                               'scrollZoom':True}
                                     ),
-                                    overview_settings(),
-                                ]), label='Overview',
-                            ),
-                            dbc.Tab(
-                                dcc.Graph(
-                                    id="gait_phase_graph",
-                                    figure=create_gait_phase_figure(demo_avg, norm_data),
-                                    config={'displaylogo': False,
-                                            'modeBarButtonsToAdd': ['drawline',
-                                                                    'drawcircle',
-                                                                    'drawrect',
-                                                                    'eraseshape'],
-                                           'scrollZoom':True},
-                                ), label='Avg. gait phase'
-                            ),
-                            dcc.Tab(
-                                dbc.Table.from_dataframe(metrics, striped=True, bordered=True, 
-                                    dark=True, responsive=True,),
-                                id = 'metrics',
-                                label='Metrics',
-                            ),
-                        ]), md=7)
-                ]),
+                                    html.Div(
+                                        dbc.Table.from_dataframe(nl_metrics, striped=True, bordered=True, 
+                                                                dark=True, responsive=True),
+                                        id = 'nl_metrics'
+                                    )
+                                ], label='Nonlinear')
+                            ]), md=7)
+                    ]),
+
+                    dbc.Row([
+                        #dbc.Col(
+                        #    dbc.Button("Export as .csv", color="primary", id='csv_download_btn'),
+                        #    width='auto'),
+                        dbc.Col(
+                            dbc.Button("Save as .c3d", color="primary", id='c3d_download_btn'),
+                            width='auto')
+                    ], justify="end")
+                ],
             )
         ]
     )
@@ -300,13 +329,17 @@ demo_pose, demo_angles, demo_events = utils.get_demo_data()
 demo_avg = utils.avg_gait_phase(demo_angles, demo_events)
 norm_data = utils.get_norm_data()['KneeZ']
 metrics = utils.calc_metrics(demo_angles, demo_events)
+emb, nl_metrics = utils.calc_nonlinear(demo_angles)
 eye = utils.get_sagital_view(demo_pose)
 
 # LAYOUT
 #=======
 layout = html.Div([
     dcc.Store(id='video_data'),
+    dcc.Store(id='pose_data_video'),
+    dcc.Store(id='pose_data_c3d'),
     dcc.Interval(id='animator', interval=500, disabled=False),
+    Download(id="download"),
     create_header(),
     dbc.Container([
         dbc.Row([

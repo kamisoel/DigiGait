@@ -42,8 +42,8 @@ def create_skeleton_fig(pose_3d, skeleton=None, joints=None,
     frames = [go.Frame(
             name=str(frame),
             data=[go.Scatter3d(x=df['x'], y=df['y'], z=df['z'],
-                    mode='markers+lines', line=dict(width=5),
-                    marker=dict(size=5),
+                    mode='markers+lines', line_width=5,
+                    marker_size=5,
                     hovertemplate= '<b>%{text}</b><br>'+
                                    '<b>x</b>: %{x:.3f}<br>'+
                                    '<b>y</b>: %{y:.3f}<br>'+
@@ -206,3 +206,33 @@ def create_gait_phase_figure(angles, norm_data=None, joint='Knee'):
                     fillcolor='rgba(178, 255, 102, 0.5)'),
     )
     return fig
+
+def create_phase_space_reconstruction(trajs):
+    names = ['Right', 'Left']
+    fig = go.Figure()
+    for i in range(len(trajs)):
+        fig.add_trace(
+            go.Scatter3d(
+                x=trajs[i, 0], y=trajs[i, 1], z=trajs[i, 2],
+                mode='lines', name=names[i]
+            )
+        )
+    fig.update_layout(
+        scene_camera=dict(
+            eye=dict(x=0.4, y=-1.8, z=0.4),
+        ),
+        margin=dict(l=0, r=0, b=10, t=5),
+        hovermode="x unified",
+        template='plotly_dark',
+        paper_bgcolor='rgba(0, 0, 0, 0)',
+        hoverlabel_bgcolor='black',
+        height=350,
+        legend=dict(
+            x=0.01,
+            y=0.98,
+            traceorder="normal",
+            bgcolor = 'black',
+        ),
+    )
+    return fig
+

@@ -41,7 +41,7 @@ class GaitCycleDetector(object):
             self.rhip = self.skel.keypoint2index['RightHip']
             self.mhip = self.skel.keypoint2index['Hip']
         else:
-            raise ValueError('Illegal pose format')+delta
+            raise ValueError(f'Illegal pose format: {pose_format}')
     
 
     def normed_gait_phases(self, data, cycles):
@@ -54,10 +54,10 @@ class GaitCycleDetector(object):
         cycles = cycles.astype(int)
 
         lengths = cycles[1:] - cycles[:-1]
-        filtered = find_outliers(lengths, 1.5)
+        is_filtered = find_outliers(lengths, 1.5)
 
         for i in range(0, len(cycles)-1):
-            if not np.isin(i, filtered):
+            if not is_filtered[i]:
                 start, end = cycles[i], cycles[i+1]
                 split = data[start:end]
                 if time_normalized:
@@ -116,7 +116,7 @@ class GaitCycleDetector(object):
         elif mode == 'simple':
             return self.simple_detection(pose, **kwargs)
         else:
-            raise ValueError('Unknow detection mode!')
+            raise ValueError(f'Unknow detection mode: {mode}')
 
 
     def combined_detection(self, pose, filter_sd=3, tolerance=15):

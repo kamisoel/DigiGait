@@ -23,3 +23,5 @@ iocursor>=0.1.1
 requests==2.25.1
 mediapipe==0.8.3
 googledrivedownloader==0.4
+c3d@git+https://github.com/MattiasFredriksson/py-c3d.git
+nolds
