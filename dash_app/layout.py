@@ -214,7 +214,7 @@ def overview_settings():
                     checked=True
                 ),
                 dbc.Label(
-                    "Show Cycles",  html_for="show_cycles",
+                    "Show annotations",  html_for="show_cycles",
                     className="custom-control-label",
                 ),
                 dbc.Tooltip(
@@ -275,14 +275,14 @@ def pose_card():
                                 dbc.Tab(
                                     dcc.Graph(
                                         id="gait_phase_graph",
-                                        figure=create_gait_phase_figure(demo_avg, norm_data),
+                                        figure=create_stride_figure(demo_avg, norm_data),
                                         config={'displaylogo': False,
                                                 'modeBarButtonsToAdd': ['drawline',
                                                                         'drawcircle',
                                                                         'drawrect',
                                                                         'eraseshape'],
                                                'scrollZoom':True},
-                                    ), label='Avg. gait phase'
+                                    ), label='Avg. stride'
                                 ),
                                 dcc.Tab(
                                     dbc.Table.from_dataframe(metrics, striped=True, bordered=True, 
@@ -306,7 +306,7 @@ def pose_card():
                                                                 dark=True, responsive=True),
                                         id = 'nl_metrics'
                                     )
-                                ], label='Nonlinear')
+                                ], label='Nonlinear (experimental)')
                             ]), md=7)
                     ]),
 
@@ -326,7 +326,7 @@ def pose_card():
 # INIT STATE
 #=======
 demo_pose, demo_angles, demo_events = utils.get_demo_data()
-demo_avg = utils.avg_gait_phase(demo_angles, demo_events)
+demo_avg = utils.calc_avg_stride(demo_angles, demo_events)
 norm_data = utils.get_norm_data()['KneeZ']
 metrics = utils.calc_metrics(demo_angles, demo_events)
 emb, nl_metrics = utils.calc_nonlinear(demo_angles)

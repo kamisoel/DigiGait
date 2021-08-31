@@ -17,8 +17,7 @@ class MediaPipe_Estimator2D(Estimator2D):
 
     BATCH_SIZE = 64
 
-    def __init__(self, out_format='mediapipe', device='cpu', model_complexity=1):
-        self.device = device
+    def __init__(self, out_format='mediapipe', model_complexity=1, return_3D=False):
         self.out_format = out_format
         self.mp_pose = mp.solutions.pose
         self.model_complexity = model_complexity

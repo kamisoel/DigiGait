@@ -157,7 +157,7 @@ def create_angle_figure(angles, gait_cycles=[], joint='Knee'):
     return fig
 
 
-def create_gait_phase_figure(angles, norm_data=None, joint='Knee'):
+def create_stride_figure(angles, norm_data=None, joint='Knee'):
     names = ['Right '+joint, 'Left '+joint]
     norm_color = 'rgba(162,162,162,0.5)'
     fig = go.Figure()

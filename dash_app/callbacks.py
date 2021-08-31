@@ -170,7 +170,7 @@ def register_callbacks(app):
         rhs = events[0]
 
         norm_data = utils.get_norm_data('overground')['KneeZ']
-        avg_gait_phase = utils.avg_gait_phase(knee_angles, events)
+        avg_stride = utils.calc_avg_stride(knee_angles, events)
         metrics = utils.calc_metrics(knee_angles, events)
         embeddings, nl_metrics = utils.calc_nonlinear(knee_angles)
 
@@ -178,8 +178,8 @@ def register_callbacks(app):
         skel_fig = figures.create_skeleton_fig(pose_3d, eye=eye)
 
         ang_fig = figures.create_angle_figure(knee_angles, rhs)
-        gait_phase_fig = figures.create_gait_phase_figure(
-                            avg_gait_phase, norm_data)
+        gait_phase_fig = figures.create_stride_figure(
+                            avg_stride, norm_data)
         phase_space_fig = figures.create_phase_space_reconstruction(embeddings)
 
         metrics_table = dbc.Table.from_dataframe(metrics, striped=True, bordered=True, 

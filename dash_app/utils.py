@@ -69,7 +69,7 @@ def write_c3d_data(pose, angle, events):
 def load_c3d_data(file):
     #in_mem_file = io.BytesIO(data)
     pose, angles, events = c3d_helper.read_c3d(file)
-    if len(pose) > 500: # long recording, more than 8 steps expected -> recalculate events
+    if len(pose) > 400: # long recording, more than 8 steps expected -> recalculate events
         gcd = GaitCycleDetector(pose_format='h36m')
         events = gcd.detect(pose, mode='auto')
     return pose, angles, events
@@ -136,7 +136,7 @@ def calc_metrics(angles, events):
 
     metrics = [_row('Range of motion', '°', rcycles.ptp(axis=-1), lcycles.ptp(axis=-1)),
                _row('Max peak', '°', rcycles.max(axis=-1), lcycles.max(axis=-1)),
-               _row('Max peak (loading response)', '°', rcycles[...,:30].max(axis=-1), lcycles[...,:30].max(axis=-1)),
+               _row('Max peak (loading response)', '°', rcycles[...,:33].max(axis=-1), lcycles[...,:33].max(axis=-1)),
                _row('Total step time', 'ms', _time(np.diff(rhs)), _time(np.diff(lhs))),
                _row('Stance time', 'ms', _time(rstance), _time(lstance)),
                _row('Swing time', 'ms', _time(rswing), _time(lswing)),
@@ -158,9 +158,12 @@ def get_demo_data():
     return demo_pose, demo_angles, gait_events
 
 
-def avg_gait_phase(angles, events):
+def calc_avg_stride(angles, events):
     gcd = GaitCycleDetector()
     rhs, lhs, _, _ = events
+    if len(rhs) < 2 or len(lhs) < 2: # not enough events to calculate
+        return np.zeros(100), np.zeros(100)
+
     r_normed_phases = gcd.normed_gait_phases(angles[:,0], rhs)
     l_normed_phases = gcd.normed_gait_phases(angles[:,1], lhs)
     r_mean = np.mean(r_normed_phases[:], axis=0)

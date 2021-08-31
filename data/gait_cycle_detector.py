@@ -8,7 +8,7 @@ from data.timeseries_utils import time_normalize, peakdet, align_values, lp_filt
 
 class GaitCycleDetector(object):
 
-    def __init__(self, pose_format='mediapipe'):
+    def __init__(self, pose_format='h36m'):
         self.pose_format = pose_format
         if pose_format == 'mediapipe':
             self.skel = skeletons.MediaPipeSkeleton()
@@ -52,6 +52,9 @@ class GaitCycleDetector(object):
     def _split_and_filter(self, data, cycles, time_normalized = False):
         splits = []
         cycles = cycles.astype(int)
+
+        if len(cycles) <= 1:
+            return [data]
 
         lengths = cycles[1:] - cycles[:-1]
         is_filtered = find_outliers(lengths, 1.5)
