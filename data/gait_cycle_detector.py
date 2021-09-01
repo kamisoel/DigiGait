@@ -122,13 +122,13 @@ class GaitCycleDetector(object):
             raise ValueError(f'Unknow detection mode: {mode}')
 
 
-    def combined_detection(self, pose, filter_sd=3, tolerance=15):
+    def combined_detection(self, pose, lp_freq=6, tolerance=15):
         # use foot displacement algorithm as basis
-        rhs, lhs, rto, lto = self.simple_detection(pose, filter_sd)
+        rhs, lhs, rto, lto = self.simple_detection(pose, lp_freq)
         # use hhd algorithm for better HS detection
-        rhs2, lhs2 = self.hhd_detection(pose, filter_sd)
+        rhs2, lhs2 = self.hhd_detection(pose, lp_freq)
         # use fva algorithm for better TO detection
-        _, _, rto2, lto2 = self.fva_detection(pose, filter_sd)
+        _, _, rto2, lto2 = self.fva_detection(pose, lp_freq)
 
         rhs = align_values(rhs, rhs2, 'mean', tolerance, keep='left')
         lhs = align_values(lhs, lhs2, 'mean', tolerance, keep='left')

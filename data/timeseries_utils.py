@@ -90,21 +90,21 @@ def align_values(left, right, f='mean', tolerance=10, keep='none', start_left=Fa
                 b = next(B)
             elif a <= b:
                 if keep == 'left' or keep == 'both':
-                    C.append(a)
+                    C.append(a) if f != 'zip' else C.append([a, np.NaN])
                 a = next(A)
             else:
                 if keep == 'right' or keep == 'both':
-                    C.append(b)
+                    C.append(b) if f != 'zip' else C.append([np.NaN, b])
                 b = next(B)
     except StopIteration:
         pass
     # one of the iterators may have leftover elements
     for a in A:
         if keep == 'left' or keep == 'both':
-            C.append(a)
+            C.append(a) if f != 'zip' else C.append([a, np.NaN])
     for b in B:
         if keep == 'right' or keep == 'both':
-            C.append(b)
+            C.append(b) if f != 'zip' else C.append([np.NaN, b])
     return np.array(C)
 
 
