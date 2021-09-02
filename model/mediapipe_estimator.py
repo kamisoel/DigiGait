@@ -13,11 +13,37 @@ from data.skeleton_helper import mediapipe2openpose, mediapipe2coco
 from data.data_utils import suggest_metadata
 
 class MediaPipe_Estimator2D(Estimator2D):
-    """2D human pose estimator using MediaPipe"""
+    """2D human pose estimator using MediaPipe
+
+    Methods
+    -------
+    estimate(video)
+        estimate the 2D pose coordinates in the given video file
+    """
 
     BATCH_SIZE = 64
 
     def __init__(self, out_format='mediapipe', model_complexity=1, return_3D=False):
+        """
+        Parameters
+        ----------
+        out_format : str
+            output pose topology used; can be 'mediapipe', 'coco' or 'openpose'
+
+        model_complexity : int , optional
+            complexity of the used MediaPipe Pose model (0-2) (default=1)
+
+        return_3D : bool , optiona
+            return estimated keypoints directly as 3D using the depth estimate
+            from MediaPipe Pose (default=False)
+
+        Raises
+        ------
+        ValueError
+            If an unknown pose output_format is specified
+        """
+        if out_format not in ['mediapipe', 'coco', 'openpose']
+            raise ValueError('Unknown pose topolgy')
         self.out_format = out_format
         self.mp_pose = mp.solutions.pose
         self.model_complexity = model_complexity
@@ -25,12 +51,30 @@ class MediaPipe_Estimator2D(Estimator2D):
 
 
     def _image_coordinates(self, X, w, h):
+        """Reverse camera frame normalization"""
+
         assert X.shape[-1] == 2
-        # Reverse camera frame normalization
         return X * [w, h]
 
+
     def estimate(self, video):
-        
+        """Estimate the 2D pose coordinates in the given video file
+
+        Parameter
+        ---------
+        video : Video
+            Video file packed into the data.Video class for convenience
+
+        Returns
+        -------
+        dict
+            2D coordinates like {'video': {'custom': [np.ndarray]}}
+
+        dict
+            metadata as used in VideoPose3D
+
+        """
+
         with self.mp_pose.Pose(
             static_image_mode=False, 
             #model_complexity=self.model_complexity,

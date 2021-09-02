@@ -7,8 +7,42 @@ import data.skeleton_helper as skeletons
 from data.timeseries_utils import time_normalize, peakdet, align_values, lp_filter, find_outliers
 
 class GaitCycleDetector(object):
+    """
+    Helper class to detect gait events (HS & TO) using the kinematic data
+
+    This class implements several algorithms for gait event
+    detection, incl.:
+        - Foot velocity algorithm by O'Connor et al. (2007)
+        - Horizontal Heel Distance (HHD) by Banks et al. (2015)
+        - Rel. Foot Displacement (RFD) based on Zeni et al. (2008)
+        - an essamble method using all 3 algorithms
+    In addition to event detection, some utility methods for splitting
+    data into strides and time normalizing the data are defined as well
+
+    Methods
+    -------
+    normed_gait_phases(data: np.ndarray, strides: list)
+        returns data as time normalized splits into strides
+
+    detect(pose, mode)
+        detect HS and TO gait events from the pose data using the alg.
+        specified in mode
+    """
 
     def __init__(self, pose_format='h36m'):
+        """
+        Parameters
+        ----------
+        pose_format : str
+            define which pose topology is used
+            can be 'mediapipe', 'openpose', 'coco' or 'h36m'
+
+        Raises
+        ------
+        ValueError
+            If another pose_format is specified then the ones above
+        """
+
         self.pose_format = pose_format
         if pose_format == 'mediapipe':
             self.skel = skeletons.MediaPipeSkeleton()
@@ -44,24 +78,43 @@ class GaitCycleDetector(object):
             raise ValueError(f'Illegal pose format: {pose_format}')
     
 
-    def normed_gait_phases(self, data, cycles):
-        split_norm = self._split_and_filter(data, cycles, True)
+    def normed_gait_phases(self, data, strides):
+        """
+        splits the given data (e.g. angles) into seperate strides
+        and time normalizing these splits to 101 points
+
+        Parameters
+        ----------
+        data : np.ndarray
+            raw data (e.g. knee angle) to split
+        
+        strides : list or array-like
+            list of HS event timings to split the data on
+
+        Returns
+        -------
+        np.ndarray
+            stacked, time-normalized splits
+        """
+
+        split_norm = self._split_and_filter(data, strides, True)
         return np.stack(split_norm)
 
 
-    def _split_and_filter(self, data, cycles, time_normalized = False):
-        splits = []
-        cycles = cycles.astype(int)
 
-        if len(cycles) <= 1:
+    def _split_and_filter(self, data, strides, time_normalized = False):
+        splits = []
+        strides = strides.astype(int)
+
+        if len(strides) <= 1:
             return [data]
 
-        lengths = cycles[1:] - cycles[:-1]
+        lengths = strides[1:] - strides[:-1]
         is_filtered = find_outliers(lengths, 1.5)
 
-        for i in range(0, len(cycles)-1):
+        for i in range(0, len(strides)-1):
             if not is_filtered[i]:
-                start, end = cycles[i], cycles[i+1]
+                start, end = strides[i], strides[i+1]
                 split = data[start:end]
                 if time_normalized:
                     split = time_normalize(split)
@@ -69,7 +122,12 @@ class GaitCycleDetector(object):
         
         return splits
 
+
     def _norm_walking_dir(self, pose):
+        """
+        Helper method to normalize the used coordinate system
+        """
+
         if pose.shape[-1] == 2: # in 2D make sure movement is from left to right
             pelvis = 0.5 * (pose[:, self.rhip] + pose[:, self.lhip])
             v_pelvis = np.gradient(pelvis[..., 0]) # get movement speed
@@ -96,17 +154,52 @@ class GaitCycleDetector(object):
             return new_pose + origin
 
 
-    def filter_false_pos(self, cycles, knee_flex, threshold=50):
+    def filter_false_pos(self, strides, knee_flex, threshold=50):
+        """
+        sanity check to filter obvious false positive HS events
+        """
+
         kept = []
-        for i in range(len(cycles)-1):
-            split = knee_flex[cycles[i]:cycles[i+1]]
+        for i in range(len(strides)-1):
+            split = knee_flex[strides[i]:strides[i+1]]
             # a flex > 50° in loading response is most likely a fp
             if np.max(split[:len(split)//4]) < threshold:
                 kept.append(i)
-        return cycles[kept]
+        return strides[kept]
 
 
     def detect(self, pose, mode='auto', **kwargs):
+        """
+        Common method for the different event detection algorithms
+
+        Parameters
+        ----------
+        pose : np.ndarray
+            2D/3D pose data
+
+        mode : str
+            event detection algorithm to use
+            'auto' -> ensemble method
+            'rnn'  -> RNN based (not recommended for now)
+            'fva'  -> foot velocity algorithm
+            'hhd'  -> horizontal heel displacement
+            'rfd'  -> rel. foot displacement
+
+        **kwargs
+            additional parameters, e.g. lp_freq to pass to the 
+            detection method
+
+        Returns
+        -------
+        tuple
+            gait events as 4-tuple of lists (RHS, LHS, RTO, LTO)
+
+        Raises
+        ------
+        ValueError
+            If unknown mode is specified
+        """
+
         if mode == 'auto':
             return self.combined_detection(pose, **kwargs)
         elif mode == 'rnn':
@@ -116,13 +209,17 @@ class GaitCycleDetector(object):
         elif mode == 'hhd':
             return (*self.hhd_detection(pose, **kwargs), 
                     np.array([]), np.array([]))
-        elif mode == 'simple':
+        elif mode == 'rfd':
             return self.simple_detection(pose, **kwargs)
         else:
             raise ValueError(f'Unknow detection mode: {mode}')
 
 
     def combined_detection(self, pose, lp_freq=6, tolerance=15):
+        """
+        Ensemble method using RFD, FVA and HHD together
+        """
+
         # use foot displacement algorithm as basis
         rhs, lhs, rto, lto = self.simple_detection(pose, lp_freq)
         # use hhd algorithm for better HS detection
@@ -174,6 +271,7 @@ class GaitCycleDetector(object):
         Heel strike detection using the Horizontal Heel Distance (HHD) 
         algorithm by Banks et al. (2015)
         """
+
         pose = self._norm_walking_dir(pose)
         rheel, lheel = pose[:, self.rfoot, -2:], pose[:, self.lfoot, -2:] #ignore x-axis in 3D
         feet_dist = np.linalg.norm(rheel - lheel, axis=1) # horizontal heel distance
@@ -188,9 +286,10 @@ class GaitCycleDetector(object):
 
     def simple_detection(self, pose, lp_freq=6, delta=0.2):
         """
-        simple foot displacement based algorithm for event detection on treatmills
+        Relative foot displacement algorithm for event detection on treatmills
         based on Zeni et al. (2008)
         """
+
         def _detect(heel_pos):
             y_pos = lp_filter(heel_pos[:, 0], lp_freq)
             #z_pos = heel_pos[:, 1]

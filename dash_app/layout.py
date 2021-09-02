@@ -128,7 +128,7 @@ def video_settings():
                                     {"label": "Auto", "value": 'auto'},
                                     {"label": "Recurrent Neural Network", "value": 'rnn'},
                                     {"label": "Foot velocity algorithm (FVA)", "value": 'fva'},
-                                    {"label": "Foot displacement algorithm", "value": 'simple'},
+                                    {"label": "Rel. foot displacement (RFD)", "value": 'rfd'},
                                     {"label": "Horizontal Heel Displacement (HHD)", "value": 'hhd'},
                                 ],
                                 value = 'auto',

@@ -1,5 +1,4 @@
 .DS_Store
-.flaskenv
 .env
 
 # no flask-cache
