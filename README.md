@@ -12,7 +12,7 @@ Python executable from the virtualenv.
 
 ## Deploy on Heroku
 
-The app can be easily deployed to Heroku and used with their free tier.
+The app can be easily deployed to Heroku and used with their free tier.  
 [![Deploy](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy)
 
 ## Deploying on ECS
