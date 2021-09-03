@@ -1,3 +1,11 @@
+"""
+Plotly figures used by the Dash app
+
+All figures used in the app are defined in this module. Includes the
+3D pose viewer, the angle trajectory, the average stride and the 
+phase space diagram
+"""
+
 import plotly.graph_objs as go
 import plotly.express as px
 

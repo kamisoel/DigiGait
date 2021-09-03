@@ -1,3 +1,7 @@
+"""
+Helper class to abstract the HPE models and the data processing
+"""
+
 import subprocess
 import os
 import io

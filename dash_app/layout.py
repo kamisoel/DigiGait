@@ -1,3 +1,13 @@
+"""
+Dash app layout definition
+
+Here all dash components as well as the general app layout is
+defined. The initial app state (demo data) is loaded on startup.
+Uses Dash_bootstrap comonents are used for layouting.
+The component style is defined as css in bootstrap.min.css and 
+style.css in the assets folder
+"""
+
 import dash
 import dash_bootstrap_components as dbc
 import dash_core_components as dcc

@@ -1,3 +1,11 @@
+"""
+DigiGait App using Plotly Dask
+
+The app is designed using the flask application factory pattern.
+The flask server is created here and the Dask app is registered together with
+the dask_extension community package
+"""
+
 import os
 from flask import Flask
 from flask.helpers import get_root_path
@@ -10,11 +18,11 @@ from dash_extensions.enrich import MultiplexerTransform, ServersideOutputTransfo
 
 def create_server():
     server = Flask(__name__)
-    #app.config.from_object("config.Config")
+    #app.config.from_object("config.Config") # only needed for Redis config
 
-    #register_extensions(server)
-    register_dashapps(server)
-    #register_blueprints(server)
+    #register_extensions(server)    # TODO: fix to use Redis as Cache
+    register_dashapps(server)       # register the Dash App
+    #register_blueprints(server)    # no further blueprints at the moment
 
     return server
 

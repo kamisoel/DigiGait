@@ -1,3 +1,11 @@
+"""
+Add Dash callbacks
+
+Here all Dash callbacks are added to the app. The function register_callbacks
+is called on initialization of the dash app. dash_extensions is used for
+advanced features such as ServerSideOutputs, Output multiplexing and Triggers
+"""
+
 #from dash.dependencies import Input, Output, State
 import dash
 from dash import no_update
